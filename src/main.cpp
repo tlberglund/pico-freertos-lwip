@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "FreeRTOS.h"
-#include "task.h"
 #include "GPIO.hpp"
 #include <array>
+
+extern "C" {
+    #include "FreeRTOS.h"
+    #include "task.h"
+}
 
 
 static pico_cpp::GPIO_Pin ledPin(25,pico_cpp::PinType::Output);

@@ -2,6 +2,9 @@
 #define FREERTOS_CONFIG_H
 
 
+#define configENABLE_MPU                        0
+#define configSYSTEM_CALL_STACK_SIZE            1024
+
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_TICKLESS_IDLE                 0
@@ -57,9 +60,9 @@
 #define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE
 
 /* Interrupt nesting behaviour configuration. */
-#define configKERNEL_INTERRUPT_PRIORITY         [dependent of processor]
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    [dependent on processor and application]
-#define configMAX_API_CALL_INTERRUPT_PRIORITY   [dependent on processor and application]
+#define configKERNEL_INTERRUPT_PRIORITY         255
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY    191
+#define configMAX_API_CALL_INTERRUPT_PRIORITY   191
 
 /* Define to trap errors during development. */
 //#define configASSERT( ( x ) ) assert()
@@ -93,7 +96,6 @@
 #define vPortSVCHandler isr_svcall
 #define xPortPendSVHandler isr_pendsv
 #define xPortSysTickHandler isr_systick
-
 
 /* A header file that defines trace macro can be included here. */
 

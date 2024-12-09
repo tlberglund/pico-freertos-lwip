@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+rm -rf build
+mkdir build
+CMake -G Ninja -S . -B build
+ninja -C build
+
