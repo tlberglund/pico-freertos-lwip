@@ -8,9 +8,9 @@
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_TICKLESS_IDLE                 0
-#define configCPU_CLOCK_HZ                      125000000/* Looking at runtime.c in the RPI 2040 SDK, the sys clock frequency is 125MHz */
-#define configSYSTICK_CLOCK_HZ                  1000000  /* This is always 1MHz on ARM I think.... */
-#define configTICK_RATE_HZ                      1000      /* I personally like 1kHz so you can do 1 ms sleeps */
+#define configCPU_CLOCK_HZ                      125000000
+#define configSYSTICK_CLOCK_HZ                  configCPU_CLOCK_HZ
+#define configTICK_RATE_HZ                      1000
 #define configMAX_PRIORITIES                    5
 #define configMINIMAL_STACK_SIZE                128      /* you might want to increase this, especially if you do any floating point printf  *YIKES* */
 #define configMAX_TASK_NAME_LEN                 16
@@ -38,16 +38,16 @@
 #define configAPPLICATION_ALLOCATED_HEAP        0
 
 /* Hook function related definitions. */
-#define configUSE_IDLE_HOOK                     0
-#define configUSE_TICK_HOOK                     0
-#define configCHECK_FOR_STACK_OVERFLOW          0
-#define configUSE_MALLOC_FAILED_HOOK            0
+#define configUSE_IDLE_HOOK                     1
+#define configUSE_TICK_HOOK                     1
+#define configCHECK_FOR_STACK_OVERFLOW          2
+#define configUSE_MALLOC_FAILED_HOOK            1
 #define configUSE_DAEMON_TASK_STARTUP_HOOK      0
 
 /* Run time and task stats gathering related definitions. */
 #define configGENERATE_RUN_TIME_STATS           0
-#define configUSE_TRACE_FACILITY                0
-#define configUSE_STATS_FORMATTING_FUNCTIONS    0
+#define configUSE_TRACE_FACILITY                1
+#define configUSE_STATS_FORMATTING_FUNCTIONS    1
 
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES                   0
@@ -60,12 +60,12 @@
 #define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE
 
 /* Interrupt nesting behaviour configuration. */
-#define configKERNEL_INTERRUPT_PRIORITY         255
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    191
-#define configMAX_API_CALL_INTERRUPT_PRIORITY   191
+#define configKERNEL_INTERRUPT_PRIORITY         3
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY    1
+#define configMAX_API_CALL_INTERRUPT_PRIORITY   1
 
 /* Define to trap errors during development. */
-//#define configASSERT( ( x ) ) assert()
+#define configASSERT( x ) assert()
 
 /* FreeRTOS MPU specific definitions. */
 #define configINCLUDE_APPLICATION_DEFINED_PRIVILEGED_FUNCTIONS 0
@@ -85,12 +85,12 @@
 #define INCLUDE_xTaskGetSchedulerState          1
 #define INCLUDE_xTaskGetCurrentTaskHandle       1
 #define INCLUDE_uxTaskGetStackHighWaterMark     0
-#define INCLUDE_xTaskGetIdleTaskHandle          0
-#define INCLUDE_eTaskGetState                   0
+#define INCLUDE_xTaskGetIdleTaskHandle          1
+#define INCLUDE_eTaskGetState                   1
 #define INCLUDE_xEventGroupSetBitFromISR        1
 #define INCLUDE_xTimerPendFunctionCall          0
 #define INCLUDE_xTaskAbortDelay                 0
-#define INCLUDE_xTaskGetHandle                  0
+#define INCLUDE_xTaskGetHandle                  1
 #define INCLUDE_xTaskResumeFromISR              1
 
 #define vPortSVCHandler isr_svcall

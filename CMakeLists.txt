@@ -1,33 +1,40 @@
-cmake_minimum_required(VERSION 3.12)
-
-
+cmake_minimum_required(VERSION 3.13)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(USERHOME $ENV{HOME})
 set(sdkVersion 2.1.0)
 set(toolchainVersion 13_3_Rel1)
 set(picotoolVersion 2.1.0)
-
+set(PICO_SDK_PATH "../pico-sdk/")
+set(PICO_TOOLCHAIN_PATH "${USERHOME}/.pico-sdk/toolchain/${toolchainVersion}")
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
+include(pico_sdk_import.cmake)
 
-# initialize the SDK based on PICO_SDK_PATH
-# note: this must happen before project()
-include(pico-sdk/pico_sdk_init.cmake)
 add_subdirectory(pico-cpp)
-project(hello_world)
 
-# initialize the Pico SDK
+project(freeRTOS_hello_world C CXX ASM)
+
 pico_sdk_init()
 
+set(OUTPUT_NAME freeRTOS_hello_world)
 
-add_executable(hello_world
+
+add_executable(${OUTPUT_NAME}
     src/main.cpp 
 )
 
+pico_enable_stdio_usb(${OUTPUT_NAME} 1)
+
+
 # Add pico_stdlib library which aggregates commonly used features
-target_link_libraries(hello_world 
+target_link_libraries(${OUTPUT_NAME} 
     pico_stdlib
-    pico_runtime
-    FreeRTOS
-    pico-cpp)
+    pico_stdio_usb
+    # pico_runtime
+    FreeRTOS)
+    # pico-cpp)
     
 add_library(FreeRTOS STATIC FreeRTOS-Kernel/croutine.c
     FreeRTOS-Kernel/event_groups.c
@@ -37,6 +44,7 @@ add_library(FreeRTOS STATIC FreeRTOS-Kernel/croutine.c
     FreeRTOS-Kernel/tasks.c
     FreeRTOS-Kernel/timers.c 
     FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/port.c 
+    FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/portASM.S 
     FreeRTOS-Kernel/portable/MemMang/heap_4.c 
     src/FreeRTOS_Support_Files/IdleMemory.c)
 
@@ -44,7 +52,6 @@ target_compile_definitions(FreeRTOS PUBLIC
     PICO_RP2040=1
     PICO_ON_DEVICE=1
 )
-message("PICO_SDK_INCLUDE_DIRS=${PICO_SDK_INCLUDE_DIRS}")
 
 
 target_include_directories(FreeRTOS PUBLIC 
@@ -65,24 +72,25 @@ target_include_directories(FreeRTOS PUBLIC
     ${PICO_SDK_PATH}/src/rp2040/hardware_regs/include
     ${PICO_SDK_PATH}/src/rp2040/hardware_structs/include
     ${CMAKE_BINARY_DIR}/generated/pico_base
-    FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/include)
+    FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/include
+)
 
-#    FreeRTOS-Kernel/portable/GCC/ARM_CM0/port.c 
 
 
-# create map/bin/hex/uf2 file in addition to ELF.
-pico_add_extra_outputs(hello_world)
-
-target_link_libraries(hello_world 
+target_link_libraries(${OUTPUT_NAME} 
     FreeRTOS 
-    pico-cpp 
+    # pico-cpp 
+    pico_stdio_usb
     pico_cyw43_arch_none
     hardware_exception)
 
 
-add_custom_command(TARGET hello_world
-        POST_BUILD
-        COMMAND arm-none-eabi-size hello_world.elf
-        )
+# create map/bin/hex/uf2 file in addition to ELF.
+pico_add_extra_outputs(${OUTPUT_NAME})
+
+# add_custom_command(TARGET hello_world
+#         POST_BUILD
+#         COMMAND arm-none-eabi-size hello_world.elf
+#         )
 
         
