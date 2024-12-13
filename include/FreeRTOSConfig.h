@@ -28,9 +28,9 @@
 
 
 /* Use Pico SDK ISR handlers */
-#define vPortSVCHandler         isr_svcall
-#define xPortPendSVHandler      isr_pendsv
-#define xPortSysTickHandler     isr_systick
+#define vPortSVCHandler         SVC_Handler
+#define xPortPendSVHandler      PendSV_Handler
+#define xPortSysTickHandler     SysTick_Handler
 
 #define configENABLE_MPU                        0
 #define configUSE_PREEMPTION                    1           // Allow tasks to be pre-empted
@@ -41,7 +41,7 @@
 #define configTICK_RATE_HZ                      1000        // FreeRTOS beats per second
 #define configMAX_PRIORITIES                    5           // Max number of priority values (0-24)
 #define configMINIMAL_STACK_SIZE                128
-#define configTOTAL_HEAP_SIZE                   ((size_t)12*1024)
+#define configTOTAL_HEAP_SIZE                   ((size_t)64*1024)
 #define configMAX_TASK_NAME_LEN                 16
 #define configUSE_16_BIT_TICKS                  0
 #define configIDLE_SHOULD_YIELD                 1
@@ -63,8 +63,8 @@
 
 /* Memory allocation related definitions. */
 #define configSUPPORT_STATIC_ALLOCATION         0
-#define configSUPPORT_DYNAMIC_ALLOCATION        1           // Get FreeRTOS to allocation task memory
-#define configAPPLICATION_ALLOCATED_HEAP        1
+#define configSUPPORT_DYNAMIC_ALLOCATION        1           // Get FreeRTOS to allocate task memory
+#define configAPPLICATION_ALLOCATED_HEAP        0
 
 /* Hook function related definitions. */
 #define configUSE_IDLE_HOOK                     0

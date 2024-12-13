@@ -8,12 +8,15 @@ set(toolchainVersion 13_3_Rel1)
 set(picotoolVersion 2.1.0)
 set(PICO_SDK_PATH "../pico-sdk/")
 set(PICO_TOOLCHAIN_PATH "${USERHOME}/.pico-sdk/toolchain/${toolchainVersion}")
-set(FREERTOS_KERNEL_PATH "../FreeRTOS-Kernel")
+set(FREERTOS_KERNEL_PATH "FreeRTOS-Kernel")
 set(FREERTOS_KERNEL_PORT_RELATIVE_PATH "portable/GCC/ARM_CM0")
 set(FREERTOS_PORT_PATH ${FREERTOS_KERNEL_PATH}/${FREERTOS_KERNEL_PORT_RELATIVE_PATH})
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 set(PROJECT_NAME freeRTOS_hello_world)
 set(OUTPUT_NAME freeRTOS_hello_world)
+
+message("USING FreeRTOS PATH=${FREERTOS_KERNEL_PATH}")
+message("USING FreeRTOS PORT PATH=${FREERTOS_PORT_PATH}")
 
 include(pico_sdk_import.cmake)
 #include(FreeRTOS_Kernel_import.cmake)
@@ -27,7 +30,6 @@ pico_sdk_init()
 
 add_executable(${OUTPUT_NAME}
     src/main.cpp 
-    ${FREERTOS_KERNEL_PATH}/portable/MemMang/heap_4.c
 )
 
 pico_enable_stdio_usb(${OUTPUT_NAME} 1)
@@ -39,7 +41,6 @@ target_link_libraries(${OUTPUT_NAME}
     pico_runtime
     pico_stdio_usb
     pico_cyw43_arch_none
-    hardware_exception
     FreeRTOS)
 
     
@@ -50,8 +51,9 @@ add_library(FreeRTOS STATIC
     ${FREERTOS_KERNEL_PATH}/stream_buffer.c
     ${FREERTOS_KERNEL_PATH}/tasks.c
     ${FREERTOS_KERNEL_PATH}/timers.c
-    ${FREERTOS_KERNEL_PATH}/portable/MemMang/heap_3.c
-    ${FREERTOS_KERNEL_PATH}/portable/GCC/ARM_CM0/port.c
+    ${FREERTOS_KERNEL_PATH}/portable/MemMang/heap_4.c
+    ${FREERTOS_PORT_PATH}/port.c
+    ${FREERTOS_PORT_PATH}/portasm.c
 )
 
 # Build FreeRTOS
@@ -64,7 +66,6 @@ target_include_directories(FreeRTOS PUBLIC
 
 target_include_directories(${OUTPUT_NAME} PUBLIC 
     ${FREERTOS_KERNEL_PATH}/include 
-    ${FREERTOS_PORT_PATH}/include
     ${FREERTOS_PORT_PATH}
     include/ 
 )
