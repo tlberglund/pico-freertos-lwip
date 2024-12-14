@@ -1,6 +1,6 @@
 # Raspberry Pi Pico FreeRTOS Example
 
-This is my Raspberry Pi Pico FreeRTOS example repo. There are many like it, but this one is mine.
+This is my [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) and [FreeRTOS](https://www.freertos.org/) example repo. There are many like it, but this one is mine.
 
 If you know something about FrerRTOS's board support packages, then it might interest you to know that this repo uses the `portable/ThirdParty/GCC/` options. These turn out to be reasonably straightforward to get running, if by straightforward you mean hours and hours of sifting through dependencies, wondering why the system tick isn't running, finding out heap allocations were causing the system to hang, calling down oaths on FreeRTOS, CMake, and microcontrollers generally, and crafting an unusually baroque list of include directories in the build file. I chased so many dead ends to get here, and now maybe you don't have to.
 
@@ -19,13 +19,23 @@ Raspberry Pi also provides a nice VSCode extension that provides support for bui
 
 ## Supported Platforms
 
-As of now I've only run this on the [Pico W](https://www.raspberrypi.com/products/raspberry-pi-pico/) ([datasheet](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf)). I'll add Pico 2 and Pico 2W as I'm able.
+* Pico W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf))
+* Pico 2 ([datasheet](https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf))
+
+The build is configurable via the `PICO_BOARD` variable in the CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll see these lines:
+
+```CMake
+#set(PICO_BOARD pico_w CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
+```
+
+Be sure to uncomment one and only one of those lines, depending on the kind of board you want to build for.
 
 ## Cloning
 
-This repo uses submodules for the [Pico SDK](https://github.com/raspberrypi/pico-sdk) and [FreeRTOS](https://www.freertos.org/). Don't blame me; this is really the best way to manage C-language dependencies. You want Maven Central? Go try all this in Kotlin.
+This repo uses submodules for the [Pico SDK](https://github.com/raspberrypi/pico-sdk) and [FreeRTOS](https://github.com/FreeRTOS/FreeRTOS-Kernel). Don't blame me; this is really the best way to manage C-language dependencies. You want Maven Central? Go try all this in Kotlin.
 
-The submodules are set to use FreeRTOS 11.1.0 and Pico SDK 2.1.0, which are current as of this writing.
+The submodules are set to use Pico SDK 2.1.0 and an unreleased version of FreeRTOS, which perfidy is necessary to support RP2350-based boards.
 
 To clone the repo, bring this to the working directory you use for super meaningful projects like this:
 

@@ -26,11 +26,12 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
-
-/* Use Pico SDK ISR handlers */
-// #define vPortSVCHandler         SVC_Handler
-// #define xPortPendSVHandler      PendSV_Handler
-// #define xPortSysTickHandler     SysTick_Handler
+#define configRUN_FREERTOS_SECURE_ONLY          1
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY    16
+#define configENABLE_FPU                        1
+#define configENABLE_TRUSTZONE                  0
+#define configNUMBER_OF_CORES                   1
+#define configSUPPORT_PICO_SYNC_INTEROP         0
 
 #define configENABLE_MPU                        0
 #define configUSE_PREEMPTION                    1           // Allow tasks to be pre-empted

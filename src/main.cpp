@@ -1,8 +1,9 @@
 
+#include <cstdio>
 #include "pico/stdlib.h"
-#include "pico/cyw43_arch.h"
 
 extern "C" {
+    #include "pico_led.h"
     #include "FreeRTOSConfig.h"
     #include "FreeRTOS.h"
     #include "task.h"
@@ -24,14 +25,6 @@ typedef struct {
     // Add other fields as needed
 } Message_t;
 
-
-int pico_led_init(void) {
-    return cyw43_arch_init();
-}
-
-void pico_set_led(bool led_on) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-}
 
 static void vTimerCallback(TimerHandle_t xTimer) {
     // Wake up sender task using task notification
