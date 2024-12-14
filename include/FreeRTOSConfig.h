@@ -28,9 +28,9 @@
 
 
 /* Use Pico SDK ISR handlers */
-#define vPortSVCHandler         SVC_Handler
-#define xPortPendSVHandler      PendSV_Handler
-#define xPortSysTickHandler     SysTick_Handler
+// #define vPortSVCHandler         SVC_Handler
+// #define xPortPendSVHandler      PendSV_Handler
+// #define xPortSysTickHandler     SysTick_Handler
 
 #define configENABLE_MPU                        0
 #define configUSE_PREEMPTION                    1           // Allow tasks to be pre-empted

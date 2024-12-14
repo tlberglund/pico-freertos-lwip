@@ -12,9 +12,9 @@ extern "C" {
 
 // uint8_t ucHeap[configTOTAL_HEAP_SIZE] __attribute__((aligned(8)));
 
-void SysTick_Handler(void);
-void SVC_Handler(void);
-void PendSV_Handler(void);
+// void SysTick_Handler(void);
+// void SVC_Handler(void);
+// void PendSV_Handler(void);
 
 }
 
@@ -32,9 +32,6 @@ void pico_set_led(bool led_on) {
 
 void blinkingTask(void *pvParameters)
 {
-for(;;) sleep_ms(10);
-    pico_set_led(true);
-
     for(;;)
     {
         pico_set_led(true);
@@ -61,38 +58,19 @@ int main() {
     BaseType_t xReturned;
     TaskHandle_t xHandle = (TaskHandle_t)0x1234;
     xReturned = xTaskCreate(
-                    blinkingTask,
-                    "LED task",
-                    512,
-                    ( void * ) 0xcafebabe,
-                    5,
-                    &xHandle );
+                blinkingTask,
+                "LED task",
+                512,
+                ( void * ) 0xcafebabe,
+                5,
+                &xHandle );
 
-    printf("xReturned=%d\n", xReturned);
-#if 0
-    printf("xHandle=%08x\n", xHandle);
-
-
-    vTaskList(buf);
-    printf("\r\nTask List:\r\n");
-    printf("Name          State  Priority  Stack   Num\r\n");
-    printf("*******************************************\r\n");
-    printf("%s\r\n", buf);
-
-
-
-    // Alternative: just get number of tasks
-    UBaseType_t num_tasks = uxTaskGetNumberOfTasks();
-    printf("Number of tasks: %u\n", num_tasks);
-
-#endif
-    printf("ABOUT TO START SCHEDULER\n");
-    // vTaskStartScheduler();
-    printf("SCHEDULER NOT STARTED\n");
+    vTaskStartScheduler();
+    printf("SCHEDULER STARTED\n");
 
     while(1) {
         sleep_ms(1000);
-        printf("heartbeat\n");
+        // printf("heartbeat\n");
     }
 
     while(1)
