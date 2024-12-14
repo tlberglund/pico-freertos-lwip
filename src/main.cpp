@@ -3,21 +3,26 @@
 #include "pico/cyw43_arch.h"
 
 extern "C" {
-#define traceENTER_vTaskStartScheduler() printf("IN vTaskStartScheduler()")
-#define traceRETURN_xTaskCreate(x) printf("traceRETURN_xTaskCreate RETURNING %d\n",x);
-#define traceENTER_xTaskCreate( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, pxCreatedTask ) printf("traceENTER_xTaskCreate: pxTaskCode=%08x, pcName=%s, uxStackDepth=%d, pvParameters=%08x, uxPriority=%d, pxCreatedTask=%08x\n", pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, pxCreatedTask);
-#include "FreeRTOSConfig.h"
-#include "FreeRTOS.h"
-#include "task.h"
+    #include "FreeRTOSConfig.h"
+    #include "FreeRTOS.h"
+    #include "task.h"
+    #include "queue.h"
+    #include "timers.h"
 
-// uint8_t ucHeap[configTOTAL_HEAP_SIZE] __attribute__((aligned(8)));
+    static void vSenderTask(void *pvParameters);
+    static void vReceiverTask(void *pvParameters);
+    static void vTimerCallback(TimerHandle_t xTimer);
 
-// void SysTick_Handler(void);
-// void SVC_Handler(void);
-// void PendSV_Handler(void);
-
+    static TimerHandle_t xTimer;
+    static QueueHandle_t xQueue;
+    static TaskHandle_t xSenderTask;
+    static TaskHandle_t xReceiverTask;
 }
 
+typedef struct {
+    uint32_t messageData;
+    // Add other fields as needed
+} Message_t;
 
 
 int pico_led_init(void) {
@@ -28,75 +33,98 @@ void pico_set_led(bool led_on) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
 }
 
+static void vTimerCallback(TimerHandle_t xTimer) {
+    // Wake up sender task using task notification
+    xTaskNotifyGive(xSenderTask);
+}
 
+static void vSenderTask(void *pvParameters) {
+    Message_t message;
+    uint32_t counter = 0;
 
-void blinkingTask(void *pvParameters)
-{
-    for(;;)
-    {
-        pico_set_led(true);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        pico_set_led(false);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    while (1) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        message.messageData = counter++;
+
+        if (xQueueSend(xQueue, &message, 0) != pdPASS) {
+            printf("Sender task queue is full\n");
+        }
     }
 }
 
 
-char buf[5000];
+static void vReceiverTask(void *pvParameters) {
+    Message_t receivedMessage;
+
+    for(;;) {
+        if (xQueueReceive(xQueue, &receivedMessage, portMAX_DELAY) == pdPASS) {
+            pico_set_led(true);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            pico_set_led(false);
+        }
+    }
+}
+
+
+void rtosSetup() {
+    // Create queue
+    xQueue = xQueueCreate(5, sizeof(Message_t));
+
+    if(xQueue != NULL) {
+        // Create sender task
+        xTaskCreate(
+            vSenderTask,
+            "Pointless Sender",
+            configMINIMAL_STACK_SIZE,
+            NULL,
+            tskIDLE_PRIORITY + 1,
+            &xSenderTask
+        );
+
+        // Create receiver task
+        xTaskCreate(
+            vReceiverTask,
+            "LED Blinker",
+            configMINIMAL_STACK_SIZE,
+            NULL,
+            tskIDLE_PRIORITY + 1,
+            &xReceiverTask
+        );
+
+        // Create timer (1 second period)
+        xTimer = xTimerCreate(
+            "Timer",
+            pdMS_TO_TICKS(1000),
+            pdTRUE,  // Auto-reload timer
+            0,       // Timer ID
+            vTimerCallback
+        );
+
+        if(xTimer != NULL) {
+            xTimerStart(xTimer, 0);
+        }
+    }
+}
 
 int main() {
     stdio_init_all();
 
     pico_led_init();
     pico_set_led(true);
-    sleep_ms(2000);
+    sleep_ms(1000);
     pico_set_led(false);
 
     printf("FreeRTOS\n");
+    rtosSetup();
 
-
-    BaseType_t xReturned;
-    TaskHandle_t xHandle = (TaskHandle_t)0x1234;
-    xReturned = xTaskCreate(
-                blinkingTask,
-                "LED task",
-                512,
-                ( void * ) 0xcafebabe,
-                5,
-                &xHandle );
-
+    printf("STARTING SCHEDULER\n");
     vTaskStartScheduler();
+
+    // "We should never reach here"
     printf("SCHEDULER STARTED\n");
-
-    while(1) {
-        sleep_ms(1000);
-        // printf("heartbeat\n");
-    }
-
     while(1)
     {
         configASSERT(0);
     }
 }
-
-
-// void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
-//     printf("Stack overflow in task: %s\n", pcTaskName);
-//     while(1); // Halt for debugging
-// }
-
-// void vApplicationMallocFailedHook(void) {
-//     printf("Malloc failed!\n");
-//     while(1); // Halt for debugging
-// }
-
-// void vApplicationTickHook(void) {
-//     pico_set_led(true);
-//     // static uint32_t tick_count = 0;
-//     // if(++tick_count % configTICK_RATE_HZ == 0) {  // Print every second
-//     //     printf("Tick: %lu\n", tick_count);
-//     // }
-// }
-
-// void vApplicationIdleHook(void) {
-// }
