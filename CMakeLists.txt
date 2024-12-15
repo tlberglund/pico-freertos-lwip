@@ -8,12 +8,12 @@ set(toolchainVersion 13_3_Rel1)
 set(picotoolVersion 2.1.0)
 set(PICO_TOOLCHAIN_PATH "${USERHOME}/.pico-sdk/toolchain/${toolchainVersion}")
 
-set(PROJECT_NAME freeRTOS_hello_world)
-set(OUTPUT_NAME freeRTOS_hello_world)
+set(PROJECT_NAME LED_strip_driver)
+set(OUTPUT_NAME strip_driver)
 
 # Choose the variety of Pico. Several parts of the build figure themselves out based on this setting.
-#set(PICO_BOARD pico_w CACHE STRING "Board type")
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico_w CACHE STRING "Board type")
+#set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Point to the repo's submodules for the PicoSDK and FreeRTOS
 set(PICO_SDK_PATH "../pico-sdk/")
@@ -58,6 +58,7 @@ target_link_libraries(${OUTPUT_NAME}
     pico_stdlib
     pico_runtime
     pico_stdio_usb
+    pico_cyw43_arch_lwip_sys_freertos
     FreeRTOS-Kernel-Heap4)
 
 if(${PICO_BOARD} STREQUAL "pico_w")
