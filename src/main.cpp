@@ -1,5 +1,7 @@
 #include <cstdio>
 #include "pico/stdlib.h"
+#include "secrets.h"
+#include "wifi_utils.h"
 
 extern "C" {
     #include "pico_led.h"
@@ -8,97 +10,279 @@ extern "C" {
     #include "task.h"
     #include "queue.h"
     #include "timers.h"
+    // #include "lwip/tcp.h"
+    // #include "lwip/err.h"
+    // #include "lwip/pbuf.h"
+    // #include "lwip/api.h"
+
+    #include "pico/cyw43_arch.h"
 }
 
-static void vSenderTask(void *pvParameters);
-static void vReceiverTask(void *pvParameters);
-static void vTimerCallback(TimerHandle_t xTimer);
-static TimerHandle_t xTimer;
-static QueueHandle_t xQueue;
-static TaskHandle_t xSenderTask;
-static TaskHandle_t xReceiverTask;
+#if 0
+#define TCP_PORT 4242
+#define MAX_RETRIES 5
+#define BUFFER_SIZE 1024
+
 
 typedef struct {
-    uint32_t messageData;
-    // Add other fields as needed
-} Message_t;
+    struct tcp_pcb *pcb;
+    uint8_t buffer[BUFFER_SIZE];
+    uint16_t buffer_len;
+} TCP_SERVER_T;
+
+static void tcp_server_close(TCP_SERVER_T *state);
 
 
-static void vTimerCallback(TimerHandle_t xTimer) {
-    // Wake up sender task using task notification
-    xTaskNotifyGive(xSenderTask);
+static err_t tcp_server_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
+    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    
+    printf("IN tcp_server_recv\n");
+
+    if (!p) {
+        // Remote host closed connection
+        tcp_server_close(state);
+        return ERR_OK;
+    }
+    
+    if (p->tot_len > 0) {
+        printf("RX LEN=%d\n", p->tot_len);
+
+        // Copy the received data into our buffer
+        uint16_t copy_len = MIN(p->tot_len, BUFFER_SIZE - state->buffer_len);
+        pbuf_copy_partial(p, state->buffer + state->buffer_len, copy_len, 0);
+        state->buffer_len += copy_len;
+        
+        // Process the received data here
+        // For this example, we'll just echo it back
+        tcp_write(pcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
+        tcp_output(pcb);
+        
+        // Clear the buffer after processing
+        state->buffer_len = 0;
+    }
+    
+    // Free the received pbuf
+    pbuf_free(p);
+
+    printf("DONE tcp_server_recv\n");
+    
+    return ERR_OK;
 }
 
-static void vSenderTask(void *pvParameters) {
-    Message_t message;
+
+static void tcp_server_err(void *arg, err_t err) {
+    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    printf("IN tcp_server_err\n");
+    if (err != ERR_ABRT) {
+        tcp_server_close(state);
+    }
+}
+
+
+static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
+    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    
+    printf("IN tcp_server_accept\n");
+    if (err != ERR_OK || client_pcb == NULL) {
+        return ERR_VAL;
+    }
+    
+    // Store PCB and set callbacks
+    state->pcb = client_pcb;
+    tcp_arg(client_pcb, state);
+    tcp_recv(client_pcb, tcp_server_recv);
+    tcp_err(client_pcb, tcp_server_err);
+    
+    return ERR_OK;
+}
+
+
+TCP_SERVER_T* tcp_server_init(void) {
+    TCP_SERVER_T *state = (TCP_SERVER_T *)calloc(1, sizeof(TCP_SERVER_T));
+    if (!state) {
+        return NULL;
+    }
+    
+    struct tcp_pcb *pcb = tcp_new_ip_type(IPADDR_TYPE_ANY);
+    if (!pcb) {
+        free(state);
+        return NULL;
+    }
+    
+    err_t err = tcp_bind(pcb, IP_ANY_TYPE, TCP_PORT);
+    if (err != ERR_OK) {
+        free(state);
+        return NULL;
+    }
+    
+    state->pcb = tcp_listen_with_backlog(pcb, 1);
+    if (!state->pcb) {
+        free(state);
+        return NULL;
+    }
+    
+    tcp_arg(state->pcb, state);
+    tcp_accept(state->pcb, tcp_server_accept);
+    
+    return state;
+}
+
+
+static void tcp_server_close(TCP_SERVER_T *state) {
+    printf("IN tcp_server_close() \n ");
+    if (state->pcb != NULL) {
+        tcp_arg(state->pcb, NULL);
+        tcp_close(state->pcb);
+        state->pcb = NULL;
+    }
+}
+
+
+void tcp_server_task(void *pvParameters) {
+    TCP_SERVER_T *state = tcp_server_init();
+    if (!state) {
+        printf("Failed to initialize TCP server\n");
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    while (1) {
+        // The TCP/IP stack will handle incoming connections and callbacks
+        // We just need to give other tasks a chance to run
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+#endif
+
+
+static void vPointlessTask(void *pvParameters) {
     uint32_t counter = 0;
 
-    while (1) {
+    for(;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        message.messageData = counter++;
+        counter++;
+    }
+}
 
-        if (xQueueSend(xQueue, &message, 0) != pdPASS) {
-            printf("Sender task queue is full\n");
+
+
+void main_task(void *params){
+	datetime_t d;
+
+	printf("Main task started\n");
+
+	if (WifiUtils::init()){
+		printf("Wifi Controller Initialised\n");
+	} else {
+		printf("Failed to initialise controller\n");
+		return;
+	}
+
+
+	printf("Connecting to WiFi... %s \n", WIFI_SSID);
+
+	if (WifiUtils::join(WIFI_SSID, WIFI_PASSWORD)){
+		printf("Connect to Wifi\n");
+	} else {
+		printf("Failed to connect to Wifi \n");
+	}
+
+
+	//Print MAC Address
+	char macStr[20];
+	WifiUtils::getMACAddressStr(macStr);
+	printf("MAC ADDRESS: %s\n", macStr);
+
+	//Print IP Address
+	char ipStr[20];
+	WifiUtils::getIPAddressStr(ipStr);
+	printf("IP ADDRESS: %s\n", ipStr);
+
+	// WifiUtils::sntpAddServer("0.uk.pool.ntp.org");
+	// WifiUtils::sntpAddServer("1.uk.pool.ntp.org");
+	// WifiUtils::sntpAddServer("2.uk.pool.ntp.org");
+	// WifiUtils::sntpAddServer("3.uk.pool.ntp.org");
+	// WifiUtils::sntpSetTimezone(0);
+	// WifiUtils::sntpStartSync();
+
+
+    while(true) {
+
+    	//runTimeStats();
+
+    	// if (rtc_get_datetime(&d)) {
+    	// 	printf("RTC: %d-%d-%d %d:%d:%d\n",
+    	// 			d.year,
+		// 			d.month,
+		// 			d.day,
+		// 			d.hour,
+		// 			d.min,
+		// 			d.sec);
+    	// }
+
+        vTaskDelay(3000);
+
+        if (!WifiUtils::isJoined()){
+        	printf("AP Link is down\n");
+
+        	if (WifiUtils::join(WIFI_SSID, WIFI_PASSWORD)){
+				printf("Connect to Wifi\n");
+			} else {
+				printf("Failed to connect to Wifi \n");
+			}
         }
     }
 }
 
 
-static void vReceiverTask(void *pvParameters) {
-    Message_t receivedMessage;
 
-    for(;;) {
-        if (xQueueReceive(xQueue, &receivedMessage, portMAX_DELAY) == pdPASS) {
-            pico_set_led(true);
-            vTaskDelay(100 / portTICK_PERIOD_MS);
-            pico_set_led(false);
-        }
-    }
+
+
+void vLaunch( void) {
+    TaskHandle_t task;
+
+    xTaskCreate(main_task, "MainThread", 2048, NULL, 1, &task);
+
+    vTaskStartScheduler();
 }
 
-
-void rtosSetup() {
-    // Create queue
-    xQueue = xQueueCreate(5, sizeof(Message_t));
-
-    if(xQueue != NULL) {
-        // Create sender task
-        xTaskCreate(
-            vSenderTask,
-            "Pointless Sender",
-            configMINIMAL_STACK_SIZE,
-            NULL,
-            tskIDLE_PRIORITY + 1,
-            &xSenderTask
-        );
-
-        // Create receiver task
-        xTaskCreate(
-            vReceiverTask,
-            "LED Blinker",
-            configMINIMAL_STACK_SIZE,
-            NULL,
-            tskIDLE_PRIORITY + 1,
-            &xReceiverTask
-        );
-
-        // Create timer (1 second period)
-        xTimer = xTimerCreate(
-            "Timer",
-            pdMS_TO_TICKS(1000),
-            pdTRUE,  // Auto-reload timer
-            0,       // Timer ID
-            vTimerCallback
-        );
-
-        if(xTimer != NULL) {
-            xTimerStart(xTimer, 0);
-        }
-    }
-}
 
 int main() {
+    stdio_init_all();
+    sleep_ms(2000);
+    printf("UP\n");
+    sleep_ms(1000);
+
+    printf("LAUNCHING\n");
+    vLaunch();
+
+
+#if 0
+    xTaskCreate(
+        vPointlessTask,
+        "Pointless Sender",
+        configMINIMAL_STACK_SIZE,
+        NULL,
+        tskIDLE_PRIORITY + 1,
+        NULL
+    );
+    vTaskStartScheduler();
+    printf("SCHEDULER STARTED\n");
+
+    for(int n = 0; n < 16; n++) {
+        gpio_init(n);
+        gpio_set_dir(n, GPIO_OUT);
+    }
+
+
+    if (cyw43_arch_init_with_country(CYW43_COUNTRY_USA)) {
+        printf("Failed to initialize CYW43 driver\n");
+        return 1;
+    }
+
+printf("DONE cyw43_arch_init_with_country()\n");
+
     stdio_init_all();
 
     pico_led_init();
@@ -106,8 +290,31 @@ int main() {
     sleep_ms(1000);
     pico_set_led(false);
 
+
+
     printf("FreeRTOS\n");
-    rtosSetup();
+
+    for(;;) sleep_ms(10);
+
+    printf("INITIALIZING CYW43\n");
+
+
+    printf("CONNECTING TO WIFI\n");
+    cyw43_arch_enable_sta_mode();
+    if(cyw43_arch_wifi_connect_timeout_ms("WIFI_SSID", "WIFI_PASSWORD", 
+                                           CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+        printf("Failed to connect to WiFi\n");
+        return 1;
+    }
+    
+    printf("STARTING TCP TASK\n");
+    xTaskCreate(tcp_server_task,
+                "TCP_SERVER",
+                configMINIMAL_STACK_SIZE * 4,
+                NULL,
+                tskIDLE_PRIORITY + 1,
+                NULL);
+    
 
     printf("STARTING SCHEDULER\n");
     vTaskStartScheduler();
@@ -118,4 +325,5 @@ int main() {
     {
         configASSERT(0);
     }
+#endif
 }

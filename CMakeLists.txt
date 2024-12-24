@@ -1,14 +1,29 @@
+# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
+endif()
+set(sdkVersion 2.1.0)
+set(toolchainVersion 13_3_Rel1)
+set(picotoolVersion 2.1.0)
+set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+if (EXISTS ${picoVscode})
+    include(${picoVscode})
+endif()
+# ====================================================================================
+
+
 cmake_minimum_required(VERSION 3.13)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(USERHOME $ENV{HOME})
-set(sdkVersion 2.1.0)
-set(toolchainVersion 13_3_Rel1)
-set(picotoolVersion 2.1.0)
 set(PICO_TOOLCHAIN_PATH "${USERHOME}/.pico-sdk/toolchain/${toolchainVersion}")
 
-set(PROJECT_NAME LED_strip_driver)
+
+set(CMAKE_BUILD_TYPE Debug)
+
+set(PROJECT_NAME strip_driver)
 set(OUTPUT_NAME strip_driver)
 
 # Choose the variety of Pico. Several parts of the build figure themselves out based on this setting.
@@ -44,6 +59,7 @@ pico_sdk_init()
 add_executable(${OUTPUT_NAME}
     src/main.cpp
     src/pico_led.c
+    src/wifi_utils.cpp
 )
 
 target_include_directories(${OUTPUT_NAME} PUBLIC 
@@ -54,17 +70,37 @@ target_include_directories(${OUTPUT_NAME} PUBLIC
 # This makes printf() work over the USB serial port
 pico_enable_stdio_usb(${OUTPUT_NAME} 1)
 
-target_link_libraries(${OUTPUT_NAME} 
-    pico_stdlib
-    pico_runtime
-    pico_stdio_usb
-    pico_cyw43_arch_lwip_sys_freertos
-    FreeRTOS-Kernel-Heap4)
-
 if(${PICO_BOARD} STREQUAL "pico_w")
-    target_link_libraries(${OUTPUT_NAME} pico_cyw43_arch_none)
+    target_link_libraries(${OUTPUT_NAME} 
+        pico_cyw43_arch_lwip_sys_freertos
+        # pico_cyw43_arch_none
+        FreeRTOS-Kernel-Heap4
+        pico_stdlib
+        pico_runtime
+        pico_stdio_usb)
+        # pico_cyw43_arch_poll)
+        # pico_cyw43_arch_lwip_sys_freertos)
+        # pico_cyw43_arch_freertos)
+        # pico_cyw43_arch_none)
     target_compile_definitions(FreeRTOS-Kernel INTERFACE PICO_RP2040=1)
+else()
+    target_link_libraries(${OUTPUT_NAME} 
+        pico_stdlib
+        pico_runtime
+        pico_stdio_usb
+        FreeRTOS-Kernel-Heap4)
 endif()
+
+add_compile_options(-save-temps=obj -fverbose-asm)
+target_compile_options(FreeRTOS-Kernel-Heap4 INTERFACE -save-temps=obj -fverbose-asm)
+
+# Get all the sources that will actually be compiled
+get_target_property(final_sources ${OUTPUT_NAME} SOURCES)
+message("Final sources to be compiled: ${final_sources}")
+
+# Get all the objects that will be linked
+get_target_property(final_objects ${OUTPUT_NAME} OBJECT_DEPENDS)
+message("Objects to be linked: ${final_objects}")
 
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(${OUTPUT_NAME})
