@@ -10,6 +10,7 @@ extern "C" {
     #include "task.h"
     #include "queue.h"
     #include "timers.h"
+    #include "hardware/rtc.h"
     // #include "lwip/tcp.h"
     // #include "lwip/err.h"
     // #include "lwip/pbuf.h"
@@ -199,27 +200,26 @@ void main_task(void *params){
 	WifiUtils::getIPAddressStr(ipStr);
 	printf("IP ADDRESS: %s\n", ipStr);
 
-	// WifiUtils::sntpAddServer("0.uk.pool.ntp.org");
-	// WifiUtils::sntpAddServer("1.uk.pool.ntp.org");
-	// WifiUtils::sntpAddServer("2.uk.pool.ntp.org");
-	// WifiUtils::sntpAddServer("3.uk.pool.ntp.org");
-	// WifiUtils::sntpSetTimezone(0);
-	// WifiUtils::sntpStartSync();
-
+	WifiUtils::sntpAddServer("0.us.pool.ntp.org");
+	WifiUtils::sntpAddServer("1.us.pool.ntp.org");
+	WifiUtils::sntpAddServer("2.us.pool.ntp.org");
+	WifiUtils::sntpAddServer("3.us.pool.ntp.org");
+	WifiUtils::sntpSetTimezone(0);
+	WifiUtils::sntpStartSync();
 
     while(true) {
 
     	//runTimeStats();
 
-    	// if (rtc_get_datetime(&d)) {
-    	// 	printf("RTC: %d-%d-%d %d:%d:%d\n",
-    	// 			d.year,
-		// 			d.month,
-		// 			d.day,
-		// 			d.hour,
-		// 			d.min,
-		// 			d.sec);
-    	// }
+        if(rtc_get_datetime(&d)) {
+            printf("RTC: %d-%d-%d %d:%d:%d\n",
+                   d.year,
+                   d.month,
+                   d.day,
+                   d.hour,
+                   d.min,
+                   d.sec);
+        }
 
         vTaskDelay(3000);
 
@@ -236,9 +236,6 @@ void main_task(void *params){
 }
 
 
-
-
-
 void vLaunch( void) {
     TaskHandle_t task;
 
@@ -252,78 +249,9 @@ int main() {
     stdio_init_all();
     sleep_ms(2000);
     printf("UP\n");
+
     sleep_ms(1000);
 
     printf("LAUNCHING\n");
     vLaunch();
-
-
-#if 0
-    xTaskCreate(
-        vPointlessTask,
-        "Pointless Sender",
-        configMINIMAL_STACK_SIZE,
-        NULL,
-        tskIDLE_PRIORITY + 1,
-        NULL
-    );
-    vTaskStartScheduler();
-    printf("SCHEDULER STARTED\n");
-
-    for(int n = 0; n < 16; n++) {
-        gpio_init(n);
-        gpio_set_dir(n, GPIO_OUT);
-    }
-
-
-    if (cyw43_arch_init_with_country(CYW43_COUNTRY_USA)) {
-        printf("Failed to initialize CYW43 driver\n");
-        return 1;
-    }
-
-printf("DONE cyw43_arch_init_with_country()\n");
-
-    stdio_init_all();
-
-    pico_led_init();
-    pico_set_led(true);
-    sleep_ms(1000);
-    pico_set_led(false);
-
-
-
-    printf("FreeRTOS\n");
-
-    for(;;) sleep_ms(10);
-
-    printf("INITIALIZING CYW43\n");
-
-
-    printf("CONNECTING TO WIFI\n");
-    cyw43_arch_enable_sta_mode();
-    if(cyw43_arch_wifi_connect_timeout_ms("WIFI_SSID", "WIFI_PASSWORD", 
-                                           CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-        printf("Failed to connect to WiFi\n");
-        return 1;
-    }
-    
-    printf("STARTING TCP TASK\n");
-    xTaskCreate(tcp_server_task,
-                "TCP_SERVER",
-                configMINIMAL_STACK_SIZE * 4,
-                NULL,
-                tskIDLE_PRIORITY + 1,
-                NULL);
-    
-
-    printf("STARTING SCHEDULER\n");
-    vTaskStartScheduler();
-
-    // "We should never reach here"
-    printf("SCHEDULER STARTED\n");
-    while(1)
-    {
-        configASSERT(0);
-    }
-#endif
 }

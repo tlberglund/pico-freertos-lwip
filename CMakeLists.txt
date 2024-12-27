@@ -57,10 +57,15 @@ project(${PROJECT_NAME}
 pico_sdk_init()
 
 add_executable(${OUTPUT_NAME}
-    src/main.cpp
-    src/pico_led.c
-    src/wifi_utils.cpp
+src/main.cpp
+src/pico_led.c
+src/wifi_utils.cpp
+${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
 )
+
+# target_sources(${OUTPUT_NAME} 
+#     PRIVATE
+# )
 
 target_include_directories(${OUTPUT_NAME} PUBLIC 
     ${FREERTOS_KERNEL_PATH}/include 
@@ -71,25 +76,26 @@ target_include_directories(${OUTPUT_NAME} PUBLIC
 pico_enable_stdio_usb(${OUTPUT_NAME} 1)
 
 if(${PICO_BOARD} STREQUAL "pico_w")
+    # target_sources(${OUTPUT_NAME} 
+    #     PRIVATE
+            
+    # )
     target_link_libraries(${OUTPUT_NAME} 
         pico_cyw43_arch_lwip_sys_freertos
-        # pico_cyw43_arch_none
-        FreeRTOS-Kernel-Heap4
-        pico_stdlib
-        pico_runtime
-        pico_stdio_usb)
-        # pico_cyw43_arch_poll)
-        # pico_cyw43_arch_lwip_sys_freertos)
-        # pico_cyw43_arch_freertos)
-        # pico_cyw43_arch_none)
+        FreeRTOS-Kernel-Heap4)
     target_compile_definitions(FreeRTOS-Kernel INTERFACE PICO_RP2040=1)
 else()
     target_link_libraries(${OUTPUT_NAME} 
-        pico_stdlib
-        pico_runtime
-        pico_stdio_usb
         FreeRTOS-Kernel-Heap4)
 endif()
+
+target_link_libraries(${OUTPUT_NAME}
+    pico_stdlib
+    pico_runtime
+    hardware_pio
+    hardware_dma
+    hardware_rtc
+    pico_stdio_usb)
 
 add_compile_options(-save-temps=obj -fverbose-asm)
 target_compile_options(FreeRTOS-Kernel-Heap4 INTERFACE -save-temps=obj -fverbose-asm)

@@ -5,25 +5,22 @@
  *      Author: jondurrant and Tim Berglund
  */
 
+#include <time.h>
 #include "wifi_utils.h"
-
 #include "pico/cyw43_arch.h"
 #include "pico/util/datetime.h"
-#include <time.h>
-// #include "hardware/rtc.h"
-
+#include "hardware/rtc.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
 #include "lwip/apps/sntp.h"
 
+
 WifiUtils::WifiUtils() {
-	sntpServerCount = 0;
-	sntpTimezoneMinutesOffset = 0;
+
 }
 
 WifiUtils::~WifiUtils() {
-	// NOP
+
 }
 
 /***
@@ -162,14 +159,13 @@ bool WifiUtils::isJoined(){
 	return (res >= 0);
 }
 
-#if 0
 /***
  * Set timezone offset
  * @param offsetHours - hours of offset -23 to + 23
  * @param offsetMinutes - for timezones that use odd mintes you can add or sub additional minutes
  */
 void WifiUtils::sntpSetTimezone(int8_t offsetHours, int8_t offsetMinutes){
-	WifiHelper::sntpTimezoneMinutesOffset = (offsetHours * 60) + offsetMinutes;
+	WifiUtils::sntpTimezoneMinutesOffset = (offsetHours * 60) + offsetMinutes;
 }
 
 /***
@@ -177,16 +173,16 @@ void WifiUtils::sntpSetTimezone(int8_t offsetHours, int8_t offsetMinutes){
  * @param server - string name of server. Should remain in scope
  */
 void WifiUtils::sntpAddServer(const char *server){
-	sntp_setservername(WifiHelper::sntpServerCount++, server);
+	sntp_setservername(WifiUtils::sntpServerCount++, server);
 }
 
 /***
  * Start syncing Pico time with SNTP
  */
-void WifiUtils::sntpStartSync(){
+void WifiUtils::sntpStartSync() {
 	rtc_init();
-	sntp_setoperatingmode(SNTP_OPMODE_POLL);
-	sntp_init();
+	// sntp_setoperatingmode(SNTP_OPMODE_POLL);
+	// sntp_init();
 }
 
 /***
@@ -197,7 +193,7 @@ void WifiUtils::setTimeSec(uint32_t sec){
 	datetime_t date;
 	struct tm * timeinfo;
 
-	time_t t = sec + (60 * WifiHelper::sntpTimezoneMinutesOffset);
+	time_t t = sec + (60 * WifiUtils::sntpTimezoneMinutesOffset);
 
 	timeinfo = gmtime(&t);
 
@@ -215,7 +211,8 @@ void WifiUtils::setTimeSec(uint32_t sec){
 
 //Function mentioned in the lwip port include lwipopts.h
 void sntpSetTimeSec(uint32_t sec){
-	WifiHelper::setTimeSec(sec);
+	WifiUtils::setTimeSec(sec);
 }
-#endif
 
+uint8_t WifiUtils::sntpServerCount = 0;
+int32_t WifiUtils::sntpTimezoneMinutesOffset = 0;
