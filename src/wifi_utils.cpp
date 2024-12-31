@@ -24,17 +24,15 @@ WifiUtils::~WifiUtils() {
 }
 
 /***
- * Initialise the controller
+ * Initialize the network controller
  * @return true if successful
  */
 bool WifiUtils::init(){
-	// Init Wifi Adapter
 	int res = cyw43_arch_init();
 	if (res) {
 		return false;
 	}
 
-	//cyw43_wifi_pm(&cyw43_state ,CYW43_AGGRESSIVE_PM);
 	cyw43_wifi_pm(&cyw43_state ,CYW43_PERFORMANCE_PM);
 
 	return true;
@@ -43,7 +41,7 @@ bool WifiUtils::init(){
 
 bool WifiUtils::join(const char *sid, const char *password,  uint8_t retries){
 	cyw43_arch_enable_sta_mode();
-	printf("Connecting to WiFi... %s \n", sid);
+	printf("CONNECTING TO NETWORK '%s'\n", sid);
 
 	//Loop trying to connect to Wifi
 	int r =-1;
@@ -53,7 +51,7 @@ bool WifiUtils::join(const char *sid, const char *password,  uint8_t retries){
 		r = cyw43_arch_wifi_connect_timeout_ms(sid, password, CYW43_AUTH_WPA2_AES_PSK, 60000);
 
 		if (r){
-			printf("Failed to join AP.\n");
+			printf("FAILED TO JOIN NETWORK\n");
 			if (attempts >= retries){
 				return false;
 			}
@@ -181,8 +179,8 @@ void WifiUtils::sntpAddServer(const char *server){
  */
 void WifiUtils::sntpStartSync() {
 	rtc_init();
-	// sntp_setoperatingmode(SNTP_OPMODE_POLL);
-	// sntp_init();
+	sntp_setoperatingmode(SNTP_OPMODE_POLL);
+	sntp_init();
 }
 
 /***

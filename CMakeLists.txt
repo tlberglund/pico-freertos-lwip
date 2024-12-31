@@ -57,10 +57,10 @@ project(${PROJECT_NAME}
 pico_sdk_init()
 
 add_executable(${OUTPUT_NAME}
-src/main.cpp
-src/pico_led.c
-src/wifi_utils.cpp
-${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
+    src/main.cpp
+    src/pico_led.c
+    src/wifi_utils.cpp
+    ${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
 )
 
 # target_sources(${OUTPUT_NAME} 
