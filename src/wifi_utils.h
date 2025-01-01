@@ -10,119 +10,59 @@
 
 #include <stdlib.h>
 #include "pico/stdlib.h"
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
+#include "event_groups.h"
+#include "pico/cyw43_arch.h"
+
 
 #ifndef WIFI_RETRIES
 #define WIFI_RETRIES 3
 #endif
+
+#define CYW43_INIT_COMPLETE_BIT   0x1
+#define WIFI_INIT_COMPLETE_BIT    0x2
 
 
 class WifiUtils {
 public:
 	WifiUtils();
 
-	virtual ~WifiUtils();
+	bool init();
+	bool get_ip_address(uint8_t *ip);
+	char *ip_to_string(uint8_t *ip, char *ips);
+	bool get_gateway_address(uint8_t *ip);
+	bool get_net_mask(uint8_t *ip) ;
+	bool get_mac_address(uint8_t *mac);
+	bool get_mac_address_str(char *macStr);
+	bool join(const char *sid, const char *password);
+	bool is_joined();
+	void sntp_set_timezone(int offsetHours, int offsetMinutes = 0);
+	void sntp_add_server(const char *server);
+	void sntp_start_sync();
+	void set_time_in_seconds(uint32_t sec);
+	void set_wifi_connect_retries(int retries) { wifi_connect_retries = retries;}
+	int get_wifi_connect_retries() { return wifi_connect_retries; }
+	void set_wifi_auth(int auth) { wifi_auth = auth; }
+	int get_wifi_auth() { return wifi_auth; }
+    void set_wifi_connect_timeout(int timeout) { wifi_connect_timeout = timeout; }
+    int get_wifi_connect_timeout() { return wifi_connect_timeout; }
 
-	/***
-	 * Initialise the controller
-	 * @return true if successful
-	 */
-	static bool init();
+	bool wait_for_cyw43_init();
+	bool wait_for_wifi_init();
 
-	/***
-	 * Get IP address of unit
-	 * @param ip - output uint8_t[4]
-	 * @return - true if IP addres assigned
-	 */
-	static bool getIPAddress(uint8_t *ip);
-
-	/***
-	 * Get IP address of unit
-	 * @param ips - output char * up to 16 chars
-	 * @return - true if IP addres assigned
-	 */
-	static bool getIPAddressStr(char *ips);
-
-	/***
-	 * Get Gateway address
-	 * @param ip - output uint8_t[4]
-	 */
-	static bool getGWAddress(uint8_t *ip);
-
-	/***
-	 * Get Gateway address
-	 * @param ips - output char * up to 16 chars
-	 * @return - true if IP addres assigned
-	 */
-	static bool getGWAddressStr(char *ips) ;
-
-	/***
-	 * Get Net Mask address
-	 * @param ip - output uint8_t[4]
-	 */
-	static bool getNetMask(uint8_t *ip) ;
-
-	/***
-	 * Get Net Mask
-	 * @param ips - output char * up to 16 chars
-	 * @return - true if IP addres assigned
-	 */
-	static bool getNetMaskStr(char *ips) ;
-
-	/***
-	 * Get the mac address as a string
-	 * @param macStr: pointer to string of at least 14 characters
-	 * @return true if successful
-	 */
-	static bool getMACAddressStr(char *macStr);
-
-	/***
-	 *  Join a Wifi Network
-	 * @param sid - string of the SID
-	 * @param password - Password for network
-	 * @param retries - Number of times to retry, defalts to 3.
-	 * @return true if successful
-	 */
-	static bool join(const char *sid, const char *password, uint8_t retries = WIFI_RETRIES);
-
-	/***
-	 * Returns if joined to the network and we have a link
-	 * @return true if joined.
-	 */
-	static bool isJoined();
-
-
-
-	/***
-	 * Set timezone offset
-	 * @param offsetHours - hours of offset -23 to + 23
-	 * @param offsetMinutes - for timezones that use odd mintes you can add or sub additional minutes
-	 */
-	static void sntpSetTimezone(int8_t offsetHours, int8_t offsetMinutes = 0);
-
-	/***
-	 * Add SNTP server - can call to add multiple servers
-	 * @param server - string name of server. Should remain in scope
-	 */
-	static void sntpAddServer(const char *server);
-
-	/***
-	 * Start syncing Pico time with SNTP
-	 */
-	static void sntpStartSync();
-
-
-	/***
-	 * Call back function used to set the RTC with the SNTP response
-	 * @param sec
-	 */
-	static void setTimeSec(uint32_t sec);
+	void unblock_cyw43_init() { xEventGroupSetBits(init_event_group, CYW43_INIT_COMPLETE_BIT); };
+	void unblock_wifi_init() { xEventGroupSetBits(init_event_group, WIFI_INIT_COMPLETE_BIT); };
+	void block_wifi_init() { xEventGroupClearBits(init_event_group, WIFI_INIT_COMPLETE_BIT); };
 
 private:
-
-	static uint8_t sntpServerCount;
-	static int32_t sntpTimezoneMinutesOffset;
-
+	int sntp_server_count;
+	int32_t sntp_timezone_minutes_offset;
+	EventGroupHandle_t init_event_group;
+	int wifi_connect_retries;
+	int wifi_auth;
+    int wifi_connect_timeout;
 };
 
-#endif /* SRC_WIFIHELPER_H_ */
+#endif
 

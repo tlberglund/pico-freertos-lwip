@@ -7,7 +7,6 @@ extern "C" {
     #include "pico_led.h"
     #include "FreeRTOSConfig.h"
     #include "FreeRTOS.h"
-    #include "event_groups.h"
     #include "task.h"
     #include "queue.h"
     #include "timers.h"
@@ -26,11 +25,19 @@ extern "C" {
 #define BUFFER_SIZE 1024
 
 
-#define CYW43_INIT_COMPLETE_BIT   0x1
-#define WIFI_INIT_COMPLETE_BIT    0x2
-bool wait_for_cyw43_init();
-bool wait_for_wifi_init();
-EventGroupHandle_t init_event_group;
+WifiUtils wifiUtils;
+
+
+/**
+ * This function is declared in $PICO_SDK/lib/lwip/src/apps/sntp/sntp.c, but not implemented
+ * anywhere in that library code. It is called from the lwIP stack when the SNTP client, and
+ * it's our responsibility to do something with that time. Right now, that's inside the
+ * WifiUtils class.
+ */
+void sntpSetTimeSec(uint32_t sec) {
+	wifiUtils.set_time_in_seconds(sec);
+}
+
 
 
 typedef struct {
@@ -178,12 +185,13 @@ static void tcp_server_close(TCP_SERVER_T *state) {
 void init_task(void *params) {
     TaskHandle_t task;
     char buffer[20];
+    uint8_t ip[4];
+    char ip_str[20];
 
-    printf("init_task running\n");
+    printf("init_task STARTING\n");
 
-	if(WifiUtils::init()){
+	if(wifiUtils.init()) {
 		printf("init_task CYW43 init SUCCESS\n");
-        xEventGroupSetBits(init_event_group, CYW43_INIT_COMPLETE_BIT);
 	} else {
 		printf("init_task CYW43 init FAILURE\n");
         vTaskDelete(NULL);
@@ -192,36 +200,35 @@ void init_task(void *params) {
     // CYW43 link status appears to be inaccurate before the first attempt to join the 
     // network, so join before we loop
     printf("init_task JOINING '%s'\n", WIFI_SSID);
-    if(WifiUtils::join(WIFI_SSID, WIFI_PASSWORD)) {
+    if(wifiUtils.join(WIFI_SSID, WIFI_PASSWORD)) {
         printf("init_task JOINED '%s'\n", WIFI_SSID);
-        WifiUtils::getMACAddressStr(buffer);
-        printf("MAC ADDRESS: %s\n", buffer);
+        // wifiUtils.getMACAddressStr(buffer);
+        // printf("MAC ADDRESS: %s\n", buffer);
 
-        WifiUtils::getIPAddressStr(buffer);
-        printf("IP ADDRESS: %s\n", buffer);
+        wifiUtils.get_ip_address(ip);
+        wifiUtils.ip_to_string(ip, ip_str);
+        printf("IP ADDRESS: %s\n", ip_str);
     } 
     else {
         printf("init_task FAILED TO JOIN '%s'\n", WIFI_SSID);
     }
 
     for(;;) {
-        if(WifiUtils::isJoined()) {
-
-            xEventGroupSetBits(init_event_group, WIFI_INIT_COMPLETE_BIT);
+        if(wifiUtils.is_joined()) {
             vTaskDelay(3000);
         }
         else {
         	printf("init_task NOT CONNECTED TO WIFI\n", WIFI_SSID);
-            xEventGroupClearBits(init_event_group, WIFI_INIT_COMPLETE_BIT);
         	printf("init_task JOINING '%s'\n", WIFI_SSID);
-            if(WifiUtils::join(WIFI_SSID, WIFI_PASSWORD)) {
+            if(wifiUtils.join(WIFI_SSID, WIFI_PASSWORD)) {
             	printf("init_task JOINED '%s'\n", WIFI_SSID);
 
-                WifiUtils::getMACAddressStr(buffer);
-                printf("MAC ADDRESS: %s\n", buffer);
+                // WifiUtils::getMACAddressStr(buffer);
+                // printf("MAC ADDRESS: %s\n", buffer);
 
-                WifiUtils::getIPAddressStr(buffer);
-                printf("IP ADDRESS: %s\n", buffer);
+                wifiUtils.get_ip_address(ip);
+                wifiUtils.ip_to_string(ip, ip_str);
+                printf("IP ADDRESS: %s\n", ip_str);
             }
             else {
             	printf("init_task FAILED TO JOIN '%s'\n", WIFI_SSID);
@@ -236,22 +243,17 @@ void main_task(void *params){
 
 	printf("main_task started\n");
 
-	printf("main_task waiting for CYW43 init\n");
-    wait_for_cyw43_init();
-	printf("main_task CYW43 init complete\n");
-
 	printf("main_task WAITING FOR WIFI INIT\n");
-    wait_for_wifi_init();
+    wifiUtils.wait_for_cyw43_init();
+    wifiUtils.wait_for_wifi_init();
 	printf("main_task WIFI INIT COMPLETE\n");
 
-    if(1) {
-        WifiUtils::sntpAddServer("0.us.pool.ntp.org");
-        WifiUtils::sntpAddServer("1.us.pool.ntp.org");
-        WifiUtils::sntpAddServer("2.us.pool.ntp.org");
-        WifiUtils::sntpAddServer("3.us.pool.ntp.org");
-        WifiUtils::sntpSetTimezone(-7);
-        WifiUtils::sntpStartSync();
-    }
+    wifiUtils.sntp_add_server("0.us.pool.ntp.org");
+    wifiUtils.sntp_add_server("1.us.pool.ntp.org");
+    wifiUtils.sntp_add_server("2.us.pool.ntp.org");
+    wifiUtils.sntp_add_server("3.us.pool.ntp.org");
+    wifiUtils.sntp_set_timezone(-7);
+    wifiUtils.sntp_start_sync();
 
     printf("INITIALIZING TCP SERVER\n");
     // TCP_SERVER_T *state = tcp_server_init();
@@ -259,9 +261,7 @@ void main_task(void *params){
     //     printf("FAILED TO INITIALIZE TCP SERVER\n");
     // }
 
-    while(true) {
-
-    	// runTimeStats();
+    for(;;) {
 
         if(rtc_get_datetime(&d)) {
             printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n",
@@ -275,51 +275,24 @@ void main_task(void *params){
 
         vTaskDelay(3000);
 
-#if 1
-        if (!WifiUtils::isJoined()){
+        if (!wifiUtils.is_joined()){
         	printf("AP Link is down\n");
 
-        	if (WifiUtils::join(WIFI_SSID, WIFI_PASSWORD)){
+        	if (wifiUtils.join(WIFI_SSID, WIFI_PASSWORD)){
 				printf("Connect to Wifi\n");
 			} else {
 				printf("Failed to connect to Wifi \n");
 			}
         }
-#endif
     }
-}
-
-
-bool wait_for_wifi_init() {
-    EventBits_t bits = xEventGroupWaitBits(
-        init_event_group,
-        WIFI_INIT_COMPLETE_BIT,
-        pdFALSE,              // Don't clear bits after waiting
-        pdTRUE,               // Wait for all bits (just one in this case)
-        portMAX_DELAY
-    );
-
-    return (bits & WIFI_INIT_COMPLETE_BIT);
-}
-
-
-bool wait_for_cyw43_init() {
-    EventBits_t bits = xEventGroupWaitBits(
-        init_event_group,
-        CYW43_INIT_COMPLETE_BIT,
-        pdFALSE,              // Don't clear bits after waiting
-        pdTRUE,               // Wait for all bits (just one in this case)
-        portMAX_DELAY
-    );
-
-    return (bits & CYW43_INIT_COMPLETE_BIT);
 }
 
 
 void vLaunch( void) {
     TaskHandle_t init_task_handle, main_task_handle;
 
-    init_event_group = xEventGroupCreate();
+    wifiUtils = WifiUtils();
+
     xTaskCreate(init_task, "Initialization Task", 4096, NULL, 1, &init_task_handle);
     xTaskCreate(main_task, "Time Syncronization Task", 4096, NULL, 1, &main_task_handle);
 
@@ -329,9 +302,9 @@ void vLaunch( void) {
 
 int main() {
     stdio_init_all();
-    sleep_ms(2000);
-    printf("UP\n");
     sleep_ms(1000);
+    printf("UP\n");
+    sleep_ms(500);
 
     printf("LAUNCHING\n");
     vLaunch();
