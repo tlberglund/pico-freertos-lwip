@@ -16,53 +16,101 @@
 
 
 
-
 WifiUtils::WifiUtils() {
     sntp_server_count = 0;
     sntp_timezone_minutes_offset = 0;
     init_event_group = NULL;
-    wifi_connect_retries = WIFI_RETRIES;
+    wifi_connect_retries = 3;
     wifi_auth = CYW43_AUTH_WPA2_AES_PSK;
     wifi_connect_timeout = 60000;
 }
 
 
 /***
- * Initialize the network controller
- * @return true if successful
+ * Initialize the CYW43 network controller and connect to the wireless network specified by
+ * the SSID and password set in the class. If the connection fails, continue retrying periodically.
+ * All of this work happens in the WifiUtils::connect_task() FreeRTOS task, which this function 
+ * creates.
  */
-bool WifiUtils::init() {
-
+void WifiUtils::init() {
     if(init_event_group == NULL) {
         init_event_group = xEventGroupCreate();
     }
 
+    xTaskCreate(connect_task, "Wifi Task", 1024, this, 1, &wifi_task_handle);
+}
+
+
+void WifiUtils::connect_task(void *params) {
+    TaskHandle_t task;
+    uint8_t ip[4];
+    char ip_str[20];
+
+    WifiUtils *wifi_utils = (WifiUtils *)params;
+
+    printf("WIFI CONNECT TASK STARTING\n");
+
     int res = cyw43_arch_init();
     if(res) {
-        return false;
+        printf("CYW43 INIT FAILED, EXITING connect_task\n");
+        vTaskDelete(NULL);
     }
 
     cyw43_wifi_pm(&cyw43_state, CYW43_PERFORMANCE_PM);
 
-    unblock_cyw43_init();
+    wifi_utils->unblock_cyw43_init();
 
-    return true;
+    // CYW43 link status appears to be inaccurate before the first attempt to join the 
+    // network, so join before we loop
+    printf("JOINING '%s'\n", wifi_utils->get_ssid());
+    if(wifi_utils->join()) {
+        printf("JOINED '%s'\n", wifi_utils->get_ssid());
+        wifi_utils->unblock_wifi_init();
+    } 
+    else {
+        printf("FAILED TO JOIN '%s'\n", wifi_utils->get_ssid());
+    }
+
+    for(;;) {
+        if(wifi_utils->is_joined()) {
+            vTaskDelay(5000);
+        }
+        else {
+            printf("NOT CONNECTED TO WIFI\n", wifi_utils->get_ssid());
+            printf("JOINING '%s'\n", wifi_utils->get_ssid());
+            if(wifi_utils->join()) {
+                wifi_utils->unblock_wifi_init();
+
+                printf("JOINED '%s'\n", wifi_utils->get_ssid());
+
+                // WifiUtils::getMACAddressStr(buffer);
+                // printf("MAC ADDRESS: %s\n", buffer);
+
+                wifi_utils->get_ip_address(ip);
+                wifi_utils->ip_to_string(ip, ip_str);
+                printf("IP ADDRESS: %s\n", ip_str);
+            }
+            else {
+                printf("FAILED TO JOIN '%s'\n", wifi_utils->get_ssid());
+            }
+        }
+    }
 }
 
 
-bool WifiUtils::join(const char *sid, const char *password) {
+bool WifiUtils::join() {
     block_wifi_init();
 
     cyw43_arch_enable_sta_mode();
 
-    printf("CONNECTING TO NETWORK '%s'\n", sid);
+    printf("CONNECTING TO NETWORK '%s'\n", get_ssid());
 
     int r = -1;
     int attempts = 0;
     while(r < 0) {
         attempts++;
-        r = cyw43_arch_wifi_connect_timeout_ms(sid, 
-                                               password,
+        r = cyw43_arch_wifi_connect_timeout_ms(get_ssid(), 
+                                               get_password(),
                                                get_wifi_auth(),
                                                get_wifi_connect_timeout());
 
