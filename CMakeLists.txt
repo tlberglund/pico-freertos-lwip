@@ -59,7 +59,7 @@ pico_sdk_init()
 add_executable(${OUTPUT_NAME}
     src/main.cpp
     src/pico_led.c
-    src/wifi_utils.cpp
+    src/wifi.cpp
     ${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
 )
 

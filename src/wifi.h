@@ -20,10 +20,8 @@
 #define WIFI_INIT_COMPLETE_BIT    0x2
 
 
-class WifiUtils {
+class WifiConnection {
 public:
-    WifiUtils();
-
     void init();
 
     static void connect_task(void *params);
@@ -58,7 +56,23 @@ public:
     void block_wifi_init() { xEventGroupClearBits(init_event_group, WIFI_INIT_COMPLETE_BIT); };
 
 
+    static WifiConnection& getInstance() {
+        static WifiConnection instance;
+        
+        instance.sntp_server_count = 0;
+        instance.sntp_timezone_minutes_offset = 0;
+        instance.init_event_group = NULL;
+        instance.wifi_connect_retries = 3;
+        instance.wifi_auth = CYW43_AUTH_WPA2_AES_PSK;
+        instance.wifi_connect_timeout = 60000;
+
+        return instance;
+    }
+
+
 private:
+    WifiConnection() {};
+
     EventGroupHandle_t init_event_group;
     TaskHandle_t wifi_task_handle;
 

@@ -1,7 +1,7 @@
 #include <cstdio>
 #include "pico/stdlib.h"
 #include "secrets.h"
-#include "wifi_utils.h"
+#include "wifi.h"
 
 extern "C" {
     #include "pico_led.h"
@@ -25,17 +25,17 @@ extern "C" {
 #define BUFFER_SIZE 1024
 
 
-WifiUtils wifi_utils;
+WifiConnection& wifi = WifiConnection::getInstance();
 
 
 /**
  * This function is declared in $PICO_SDK/lib/lwip/src/apps/sntp/sntp.c, but not implemented
  * anywhere in that library code. It is called from the lwIP stack when the SNTP client, and
  * it's our responsibility to do something with that time. Right now, that's inside the
- * WifiUtils class.
+ * WifiConnection class.
  */
 void sntpSetTimeSec(uint32_t sec) {
-    wifi_utils.set_time_in_seconds(sec);
+    wifi.set_time_in_seconds(sec);
 }
 
 
@@ -188,15 +188,15 @@ void main_task(void *params) {
     printf("main_task started\n");
 
     printf("main_task WAITING FOR WIFI INIT\n");
-    wifi_utils.wait_for_wifi_init();
+    wifi.wait_for_wifi_init();
     printf("main_task WIFI INIT COMPLETE\n");
 
-    wifi_utils.sntp_add_server("0.us.pool.ntp.org");
-    wifi_utils.sntp_add_server("1.us.pool.ntp.org");
-    wifi_utils.sntp_add_server("2.us.pool.ntp.org");
-    wifi_utils.sntp_add_server("3.us.pool.ntp.org");
-    wifi_utils.sntp_set_timezone(-7);
-    wifi_utils.sntp_start_sync();
+    wifi.sntp_add_server("0.us.pool.ntp.org");
+    wifi.sntp_add_server("1.us.pool.ntp.org");
+    wifi.sntp_add_server("2.us.pool.ntp.org");
+    wifi.sntp_add_server("3.us.pool.ntp.org");
+    wifi.sntp_set_timezone(-7);
+    wifi.sntp_start_sync();
 
     printf("INITIALIZING TCP SERVER\n");
     // TCP_SERVER_T *state = tcp_server_init();
@@ -223,12 +223,11 @@ void main_task(void *params) {
 void launch() {
     TaskHandle_t main_task_handle;
 
-    wifi_utils = WifiUtils();
-    wifi_utils.set_ssid(WIFI_SSID);
-    wifi_utils.set_password(WIFI_PASSWORD);
+    wifi.set_ssid(WIFI_SSID);
+    wifi.set_password(WIFI_PASSWORD);
 
     printf("STARTING CYW43/WIFI INITIALIZATION\n");
-    wifi_utils.init();
+    wifi.init();
 
     xTaskCreate(main_task, "Time Syncronization Task", 1024, NULL, 1, &main_task_handle);
 
