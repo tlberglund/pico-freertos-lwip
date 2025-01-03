@@ -12,16 +12,30 @@ class PicoTCPClient:
         """Establish connection to the Pico"""
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+            # More aggressive TCP settings
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            
+            # Longer timeout
+            self.sock.settimeout(10)
+            
+            print(f"Attempting to connect to {self.host}:{self.port}...")
             self.sock.connect((self.host, self.port))
+            
+            # Once connected, set to blocking mode with no timeout
+            self.sock.settimeout(None)
+            
             print(f"Connected to {self.host}:{self.port}")
             return True
-        except ConnectionRefusedError:
-            print(f"Connection refused to {self.host}:{self.port}")
-            return False
         except Exception as e:
-            print(f"Error connecting: {e}")
+            print(f"Socket error: {e}")
+            if hasattr(e, 'errno'):
+                print(f"Error number: {e.errno}")
             return False
-    
+        
+
     def send_message(self, message):
         """Send a message and wait for response"""
         if not self.sock:
