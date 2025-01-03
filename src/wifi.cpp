@@ -54,7 +54,11 @@ void WifiConnection::connect_task(void *params) {
     // CYW43 link status appears to be inaccurate before the first attempt to join the 
     // network, so join before we loop
     printf("JOINING '%s'\n", wifi_utils->get_ssid());
-    wifi_utils->join();
+    if(wifi_utils->join()) {
+        wifi_utils->get_ip_address(ip);
+        wifi_utils->ip_to_string(ip, ip_str);
+        printf("IP ADDRESS: %s\n", ip_str);
+    }
 
     for(;;) {
         if(wifi_utils->is_joined()) {

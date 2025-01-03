@@ -48,11 +48,22 @@
 #define DHCP_DOES_ARP_CHECK         1
 #define LWIP_DHCP_DOES_ACD_CHECK    0
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
 #define LWIP_DEBUG                  1
 #define LWIP_STATS                  1
 #define LWIP_STATS_DISPLAY          1
-#endif
+// #endif
+
+// Define the LWIP debug flags
+#define LWIP_DBG_ON      0x80U
+#define LWIP_DBG_OFF     0x00U
+#define LWIP_DBG_TRACE   0x40U
+#define LWIP_DBG_STATE   0x20U
+#define LWIP_DBG_FRESH   0x10U
+
+// A global "all debug types on" flag; not quite sure how this is used yet
+#define LWIP_DBG_TYPES_ON (LWIP_DBG_ON | LWIP_DBG_TRACE | LWIP_DBG_STATE | LWIP_DBG_FRESH)
+
 
 #define ETHARP_DEBUG                LWIP_DBG_OFF
 #define NETIF_DEBUG                 LWIP_DBG_OFF
@@ -68,25 +79,26 @@
 #define MEM_DEBUG                   LWIP_DBG_OFF
 #define MEMP_DEBUG                  LWIP_DBG_OFF
 #define SYS_DEBUG                   LWIP_DBG_OFF
-#define TCP_DEBUG                   LWIP_DBG_OFF
-#define TCP_INPUT_DEBUG             LWIP_DBG_OFF
-#define TCP_OUTPUT_DEBUG            LWIP_DBG_OFF
-#define TCP_RTO_DEBUG               LWIP_DBG_OFF
-#define TCP_CWND_DEBUG              LWIP_DBG_OFF
-#define TCP_WND_DEBUG               LWIP_DBG_OFF
-#define TCP_FR_DEBUG                LWIP_DBG_OFF
-#define TCP_QLEN_DEBUG              LWIP_DBG_OFF
-#define TCP_RST_DEBUG               LWIP_DBG_OFF
+#define TCP_DEBUG                   LWIP_DBG_ON
+#define TCP_INPUT_DEBUG             LWIP_DBG_ON
+#define TCP_OUTPUT_DEBUG            LWIP_DBG_ON
+#define TCP_RTO_DEBUG               LWIP_DBG_ON
+#define TCP_CWND_DEBUG              LWIP_DBG_ON
+#define TCP_WND_DEBUG               LWIP_DBG_ON
+#define TCP_FR_DEBUG                LWIP_DBG_ON
+#define TCP_QLEN_DEBUG              LWIP_DBG_ON
+#define TCP_RST_DEBUG               LWIP_DBG_ON
 #define UDP_DEBUG                   LWIP_DBG_OFF
 #define TCPIP_DEBUG                 LWIP_DBG_OFF
 #define PPP_DEBUG                   LWIP_DBG_OFF
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
+#define SNTP_DEBUG                  LWIP_DBG_OFF
 
 
 #define DEFAULT_TCP_RECVMBOX_SIZE 128
 
-//SNTP NETWORK TIME
+
 #define SNTP_SUPPORT      1
 #define SNTP_SERVER_DNS   1
 void sntpSetTimeSec(uint32_t sec);
@@ -94,8 +106,8 @@ void sntpSetTimeSec(uint32_t sec);
 //MEMP_NUM_SYS_TIMEOUTS Needs to be one larger than default for SNTP
 #define MEMP_NUM_SYS_TIMEOUT            (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)
 
-//Once an hour
-#define SNTP_UPDATE_DELAY 60000*60
+// SNTP updates automatically using a timer managed internall by the LWIP stack
+#define SNTP_UPDATE_DELAY 60*60*1000
 
 // #define CYW43_VDEBUG(...) printf(__VA_ARGS__)
 #define CYW43_VERBOSE_DEBUG 1

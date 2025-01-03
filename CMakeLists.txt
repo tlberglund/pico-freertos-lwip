@@ -101,13 +101,5 @@ target_link_libraries(${OUTPUT_NAME}
 add_compile_options(-save-temps=obj -fverbose-asm)
 target_compile_options(FreeRTOS-Kernel-Heap4 INTERFACE -save-temps=obj -fverbose-asm)
 
-# Get all the sources that will actually be compiled
-get_target_property(final_sources ${OUTPUT_NAME} SOURCES)
-message("Final sources to be compiled: ${final_sources}")
-
-# Get all the objects that will be linked
-get_target_property(final_objects ${OUTPUT_NAME} OBJECT_DEPENDS)
-message("Objects to be linked: ${final_objects}")
-
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(${OUTPUT_NAME})

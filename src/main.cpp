@@ -33,13 +33,13 @@ typedef struct {
     struct tcp_pcb *pcb;
     uint8_t buffer[BUFFER_SIZE];
     uint16_t buffer_len;
-} TCP_SERVER_T;
+} tcp_server_t;
 
-static void tcp_server_close(TCP_SERVER_T *state);
+static void tcp_server_close(tcp_server_t *state);
 
 
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    tcp_server_t *state = (tcp_server_t*)arg;
     
     printf("IN tcp_server_recv\n");
 
@@ -76,7 +76,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
 
 
 static void tcp_server_err(void *arg, err_t err) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    tcp_server_t *state = (tcp_server_t*)arg;
     printf("IN tcp_server_err\n");
     if(err != ERR_ABRT) {
         tcp_server_close(state);
@@ -85,7 +85,7 @@ static void tcp_server_err(void *arg, err_t err) {
 
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    tcp_server_t *state = (tcp_server_t*)arg;
     
     printf("IN tcp_server_accept\n");
     if(err != ERR_OK || client_pcb == NULL) {
@@ -102,8 +102,8 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
 }
 
 
-TCP_SERVER_T* tcp_server_init(void) {
-    TCP_SERVER_T *state = (TCP_SERVER_T *)calloc(1, sizeof(TCP_SERVER_T));
+tcp_server_t* tcp_server_init(void) {
+    tcp_server_t *state = (tcp_server_t *)calloc(1, sizeof(tcp_server_t));
     if(!state) {
         return NULL;
     }
@@ -133,7 +133,7 @@ TCP_SERVER_T* tcp_server_init(void) {
 }
 
 
-static void tcp_server_close(TCP_SERVER_T *state) {
+static void tcp_server_close(tcp_server_t *state) {
     printf("IN tcp_server_close() \n ");
     if(state->pcb != NULL) {
         tcp_arg(state->pcb, NULL);
@@ -144,7 +144,7 @@ static void tcp_server_close(TCP_SERVER_T *state) {
 
 
 // void tcp_server_task(void *pvParameters) {
-//     TCP_SERVER_T *state = tcp_server_init();
+//     tcp_server_t *state = tcp_server_init();
 //     if(!state) {
 //         printf("Failed to initialize TCP server\n");
 //         vTaskDelete(NULL);
@@ -170,8 +170,30 @@ static void tcp_server_close(TCP_SERVER_T *state) {
 // }
 
 
+static TaskHandle_t led_task_handle;
+
+void led_task(void *pvParameters) {
+    WifiConnection *wifi = (WifiConnection *)pvParameters;
+
+    printf("LED TASK STARTED, WAITING FOR WIFI\n");
+
+    wifi->wait_for_wifi_init();
+
+    printf("LED TASK WIFI IS UP\n");
+
+    tcp_server_t *state = tcp_server_init();
+    if(!state) {
+        printf("FAILED TO INITIALIZE TCP SERVER\n");
+        vTaskDelete(NULL);
+    }
+
+    for(;;) {
+        vTaskDelay(1000);
+    }
+}
+
+
 void launch() {
-    TaskHandle_t main_task_handle;
 
     wifi.set_ssid(WIFI_SSID);
     wifi.set_password(WIFI_PASSWORD);
@@ -184,11 +206,7 @@ void launch() {
     network_time.set_wifi_connection(&wifi);
     network_time.init();
 
-    // printf("INITIALIZING TCP SERVER\n");
-    // TCP_SERVER_T *state = tcp_server_init();
-    // if(!state) {
-    //     printf("FAILED TO INITIALIZE TCP SERVER\n");
-    // }
+    xTaskCreate(led_task, "LED Data Task", 1024, &wifi, 1, &led_task_handle);
 
     vTaskStartScheduler();
 }

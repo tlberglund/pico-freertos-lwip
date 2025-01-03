@@ -10,27 +10,43 @@
 
 
 /**
- * This function is declared in $PICO_SDK/lib/lwip/src/apps/sntp/sntp.c, but not implemented
- * anywhere in that library code. It is called from the lwIP stack when the SNTP client gets 
- * a result back from an NTP server, and it's our responsibility to do something with that time. 
- * The NetworkTime class, (which is involved because it holds time zone offset state) provides 
- * the set_time_in_seconds() method to implement the RTC interface.
+ * This function is declared in $PICO_SDK/lib/lwip/src/apps/sntp/sntp.c, but not
+ * implemented anywhere in that library code. It is called from the lwIP stack
+ * when the SNTP client gets a result back from an NTP server, and it's our
+ * responsibility to do something with that time. The NetworkTime class, (which
+ * is involved because it holds time zone offset state, which NTP itself doesn't
+ * care about) provides the set_time_in_seconds() method to implement the RTC
+ * interface.
  */
 void sntpSetTimeSec(uint32_t sec) {
     NetworkTime::getInstance().set_time_in_seconds(sec);
 }
 
 
-void NetworkTime::init() {
+/**
+ * Kicks off the SNTP process in the Pico SDK LWIP "apps" library. This function
+ * can be called before or after the FreeRTOS scheduler is running, but it can't
+ * be called before the WifiConnection has been set with set_wifi_connection().
+ *
+ * The function creates a short-lived task that waits for the wifi connection to
+ * be established through the syncrhronization mechanism exposed by the
+ * WifiConnection class. That task kicks off the periodic SNTP sync process,
+ * whose period is determined by SNTP_UPDATE_DELAY defined in lwipopts.h. That
+ * task dies as soon as the SNTP process is started, since an internal LWIP task
+ * is managing the update timer for us.
+ */
+void NetworkTime::init()
+{
     xTaskCreate(time_task, "SNTP Task", 1024, this, 1, &time_task_handle);
 }
 
 
 /***
  * Set timezone offset
- * 
+ *
  * @param offsetHours - hours of offset -23 to + 23
- * @param offsetMinutes - for timezones that use odd mintes you can add or sub additional minutes
+ * @param offsetMinutes - for timezones that use odd mintes you can add or sub
+ * additional minutes
  */
 void NetworkTime::sntp_set_timezone(int offsetHours, int offsetMinutes) {
     sntp_timezone_minutes_offset = (offsetHours * 60) + offsetMinutes;
@@ -57,9 +73,10 @@ void NetworkTime::sntp_start_sync() {
 
 
 /***
- * Actually sets the Pico real-time clock (RTC) with a specific time. In the case of this
- * class, that time should be coming from an NTP server. See the sntpSetTimeSec() function
- * (declared in this file but not a part of the NetworkTime class) for how this call is made.
+ * Actually sets the Pico real-time clock (RTC) with a specific time. In the
+ * case of this class, that time should be coming from an NTP server. See the
+ * sntpSetTimeSec() function (declared in this file but not a part of the
+ * NetworkTime class) for how this call is made.
  */
 void NetworkTime::set_time_in_seconds(uint32_t sec) {
     datetime_t date;
@@ -94,17 +111,7 @@ void NetworkTime::time_task(void *params) {
 
     time->sntp_start_sync();
 
-    for(;;) {
-        if(rtc_get_datetime(&d)) {
-            printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n",
-                   d.year,
-                   d.month,
-                   d.day,
-                   d.hour,
-                   d.min,
-                   d.sec);
-        }
+    printf("NTP SYNC RUNNING; EXITING NTP TASK\n");
 
-        vTaskDelay(5000);
-    }
+    vTaskDelete(NULL);
 }
