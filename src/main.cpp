@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "secrets.h"
 #include "wifi.h"
+#include "network_time.h"
 
 extern "C" {
     #include "pico_led.h"
@@ -19,25 +20,13 @@ extern "C" {
     #include "pico/cyw43_arch.h"
 }
 
-#if 1
 #define TCP_PORT 4242
 #define MAX_RETRIES 5
 #define BUFFER_SIZE 1024
 
 
 WifiConnection& wifi = WifiConnection::getInstance();
-
-
-/**
- * This function is declared in $PICO_SDK/lib/lwip/src/apps/sntp/sntp.c, but not implemented
- * anywhere in that library code. It is called from the lwIP stack when the SNTP client, and
- * it's our responsibility to do something with that time. Right now, that's inside the
- * WifiConnection class.
- */
-void sntpSetTimeSec(uint32_t sec) {
-    wifi.set_time_in_seconds(sec);
-}
-
+NetworkTime& network_time = NetworkTime::getInstance();
 
 
 typedef struct {
@@ -168,7 +157,6 @@ static void tcp_server_close(TCP_SERVER_T *state) {
 //         vTaskDelay(pdMS_TO_TICKS(10));
 //     }
 // }
-#endif
 
 
 // static void vPointlessTask(void *pvParameters) {
@@ -182,44 +170,6 @@ static void tcp_server_close(TCP_SERVER_T *state) {
 // }
 
 
-void main_task(void *params) {
-    datetime_t d;
-
-    printf("main_task started\n");
-
-    printf("main_task WAITING FOR WIFI INIT\n");
-    wifi.wait_for_wifi_init();
-    printf("main_task WIFI INIT COMPLETE\n");
-
-    wifi.sntp_add_server("0.us.pool.ntp.org");
-    wifi.sntp_add_server("1.us.pool.ntp.org");
-    wifi.sntp_add_server("2.us.pool.ntp.org");
-    wifi.sntp_add_server("3.us.pool.ntp.org");
-    wifi.sntp_set_timezone(-7);
-    wifi.sntp_start_sync();
-
-    printf("INITIALIZING TCP SERVER\n");
-    // TCP_SERVER_T *state = tcp_server_init();
-    // if(!state) {
-    //     printf("FAILED TO INITIALIZE TCP SERVER\n");
-    // }
-
-    for(;;) {
-        if(rtc_get_datetime(&d)) {
-            printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n",
-                   d.year,
-                   d.month,
-                   d.day,
-                   d.hour,
-                   d.min,
-                   d.sec);
-        }
-
-        vTaskDelay(5000);
-    }
-}
-
-
 void launch() {
     TaskHandle_t main_task_handle;
 
@@ -229,7 +179,16 @@ void launch() {
     printf("STARTING CYW43/WIFI INITIALIZATION\n");
     wifi.init();
 
-    xTaskCreate(main_task, "Time Syncronization Task", 1024, NULL, 1, &main_task_handle);
+    printf("STARTING NTP SYNC\n");
+    network_time.sntp_set_timezone(-7);
+    network_time.set_wifi_connection(&wifi);
+    network_time.init();
+
+    // printf("INITIALIZING TCP SERVER\n");
+    // TCP_SERVER_T *state = tcp_server_init();
+    // if(!state) {
+    //     printf("FAILED TO INITIALIZE TCP SERVER\n");
+    // }
 
     vTaskStartScheduler();
 }
@@ -237,7 +196,7 @@ void launch() {
 
 int main() {
     stdio_init_all();
-    sleep_ms(1000);
+    sleep_ms(2000);
     printf("UP\n");
     sleep_ms(500);
 

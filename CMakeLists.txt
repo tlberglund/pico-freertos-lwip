@@ -60,6 +60,7 @@ add_executable(${OUTPUT_NAME}
     src/main.cpp
     src/pico_led.c
     src/wifi.cpp
+    src/network_time.cpp
     ${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
 )
 

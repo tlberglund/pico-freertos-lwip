@@ -1,20 +1,15 @@
 /*
- * WifiConnection.cpp
+ * Wifi.cpp
  *
- *  Created on: 24 Nov 2021
- *      Author: jondurrant and Tim Berglund
+ *  Created on: 24 Nov 2021 by jondurrant
+ *  Enhanced a lot on or about: 2 Jan 2025 by Tim Berglund
  */
 
 #include <time.h>
 #include "wifi.h"
 #include "pico/cyw43_arch.h"
-#include "pico/util/datetime.h"
-#include "hardware/rtc.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "lwip/apps/sntp.h"
-
-
 
 
 /***
@@ -28,7 +23,7 @@ void WifiConnection::init() {
         init_event_group = xEventGroupCreate();
     }
 
-    xTaskCreate(connect_task, "Wifi Task", 1024, this, 1, &wifi_task_handle);
+    int r = xTaskCreate(connect_task, "Wifi Task", 1024, this, 2, &wifi_task_handle);
 }
 
 
@@ -44,34 +39,33 @@ void WifiConnection::connect_task(void *params) {
     int res = cyw43_arch_init();
     if(res) {
         printf("CYW43 INIT FAILED, EXITING connect_task\n");
+        sleep_ms(50);
         vTaskDelete(NULL);
     }
 
+    printf("CYW43 ARCH INIT COMPLETE\n");
+
     cyw43_wifi_pm(&cyw43_state, CYW43_PERFORMANCE_PM);
+
+    printf("CYW43 WIFI PM INIT COMPLETE\n");
 
     wifi_utils->unblock_cyw43_init();
 
     // CYW43 link status appears to be inaccurate before the first attempt to join the 
     // network, so join before we loop
     printf("JOINING '%s'\n", wifi_utils->get_ssid());
-    if(wifi_utils->join()) {
-        printf("JOINED '%s'\n", wifi_utils->get_ssid());
-        wifi_utils->unblock_wifi_init();
-    } 
-    else {
-        printf("FAILED TO JOIN '%s'\n", wifi_utils->get_ssid());
-    }
+    wifi_utils->join();
 
     for(;;) {
         if(wifi_utils->is_joined()) {
+            wifi_utils->unblock_wifi_init();
             vTaskDelay(5000);
         }
         else {
+            wifi_utils->block_wifi_init();
             printf("NOT CONNECTED TO WIFI\n", wifi_utils->get_ssid());
             printf("JOINING '%s'\n", wifi_utils->get_ssid());
             if(wifi_utils->join()) {
-                wifi_utils->unblock_wifi_init();
-
                 printf("JOINED '%s'\n", wifi_utils->get_ssid());
 
                 // WifiConnection::getMACAddressStr(buffer);
@@ -90,8 +84,6 @@ void WifiConnection::connect_task(void *params) {
 
 
 bool WifiConnection::join() {
-    block_wifi_init();
-
     cyw43_arch_enable_sta_mode();
 
     printf("CONNECTING TO NETWORK '%s'\n", get_ssid());
@@ -114,7 +106,6 @@ bool WifiConnection::join() {
         }
     }
 
-    unblock_wifi_init();
     return true;
 }
 
@@ -212,65 +203,27 @@ bool WifiConnection::get_mac_address_str(char *macStr) {
  */
 bool WifiConnection::is_joined() {
     if(cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) > 0) {
-        unblock_wifi_init();
         return true;
     }
     else {
-        block_wifi_init();
         return false;
     }
 }
 
 
-/***
- * Set timezone offset
- * @param offsetHours - hours of offset -23 to + 23
- * @param offsetMinutes - for timezones that use odd mintes you can add or sub additional minutes
- */
-void WifiConnection::sntp_set_timezone(int offsetHours, int offsetMinutes) {
-    sntp_timezone_minutes_offset = (offsetHours * 60) + offsetMinutes;
+void WifiConnection::unblock_wifi_init() { 
+    xEventGroupSetBits(init_event_group, WIFI_INIT_COMPLETE_BIT); 
 }
 
-/***
- * Add SNTP server - can call to add multiple servers
- * @param server - string name of server. Should remain in scope
- */
-void WifiConnection::sntp_add_server(const char *server){
-    sntp_setservername(sntp_server_count++, server);
-}
 
-/***
- * Start syncing Pico time with SNTP
- */
-void WifiConnection::sntp_start_sync() {
-    rtc_init();
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_init();
-}
+void WifiConnection::unblock_cyw43_init() { 
+    xEventGroupSetBits(init_event_group, CYW43_INIT_COMPLETE_BIT); 
+};
 
-/***
- * Call back function used to set the RTC with the SNTP response
- * @param sec
- */
-void WifiConnection::set_time_in_seconds(uint32_t sec) {
-    datetime_t date;
-    struct tm * timeinfo;
 
-    time_t t = sec + (60 * sntp_timezone_minutes_offset);
-
-    timeinfo = gmtime(&t);
-
-    memset(&date, 0, sizeof(date));
-    date.sec = timeinfo->tm_sec;
-    date.min = timeinfo->tm_min;
-    date.hour = timeinfo->tm_hour;
-    date.day = timeinfo->tm_mday;
-    date.month = timeinfo->tm_mon + 1;
-    date.year = timeinfo->tm_year + 1900;
-
-    rtc_set_datetime (&date);
-}
-
+void WifiConnection::block_wifi_init() { 
+    xEventGroupClearBits(init_event_group, WIFI_INIT_COMPLETE_BIT);
+};
 
 
 bool WifiConnection::wait_for_wifi_init() {
@@ -284,7 +237,6 @@ bool WifiConnection::wait_for_wifi_init() {
 
     return (bits & WIFI_INIT_COMPLETE_BIT);
 }
-
 
 
 bool WifiConnection::wait_for_cyw43_init() {
