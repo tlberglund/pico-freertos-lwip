@@ -1,69 +1,110 @@
-# Raspberry Pi Pico FreeRTOS Example
+# Raspberry Pi Pico FreeRTOS Lightweight IP Stack (LWIP) Example
 
-This is my [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) and [FreeRTOS](https://www.freertos.org/) example repo. There are many like it, but this one is mine.
+This is an example of how to use the [FreeRTOS](https://www.freertos.org/) LWIP (Lightweight IP) stack on the [Raspberry Pi PicoW](https://www.raspberrypi.com/products/raspberry-pi-pico/). Creating it was not a pleasant process. I hope using it is.
 
-If you know something about FrerRTOS's board support packages, then it might interest you to know that this repo uses the `portable/ThirdParty/` options. These turn out to be reasonably straightforward to get running, if by straightforward you mean hours and hours of sifting through dependencies, wondering why the system tick isn't running, finding out heap allocations were causing the system to hang, calling down oaths on FreeRTOS, CMake, and microcontrollers generally, and crafting an unusually baroque list of include directories in the build file. I chased so many dead ends to get here, and now maybe you don't have to.
+At present there is a bug in the [Pico SDK 2.1.0](https://github.com/raspberrypi/pico-sdk) support for the Infineon CYW43439 device on the Pico W (the part that provides Wifi and Bluetooth support), so this repo uses a fork containing the fix, which I found documented in [issue 2101 in the Pico SDK repo](https://github.com/raspberrypi/pico-sdk/issues/2101). But we are getting ahead of ourselves.
+
+You should see my main [Pico/FreeRTOS example repo](https://github.com/tlberglund/pico-freertos-example) for more details about how to build this project.
+
+## What Does This Actually Do?
+
+This project joins a wifi network, uses DHCP to get an IP, and starts an SNTP (Simple Network Time Protocol) thread that fetches the time every hour. You might not need desperately need NTP in your life, but this is a springboard into anything you want to do with the TCP/IP stack. There are several other application-level protocols implemeted in the Pico SDK in the same directory the NTP code is located in (peruse `CMakeLists.txt` for this path), so you can go have some fun. By which I mean hours of frustration culmiating in a satisfactory result.
+
+The poorly-documented `WifiConnection` class is derived from @jondurrant's helpful WifiHelper class. It's a singleton that provides basic services to initialize the CYW43 SoC and join the configured wireless network. It does this in a FreeRTOS thread that continually checks the network status and attempts to rejoin as needed. The `wait_for_wifi_init()` method allows other threads to block on the networking joining.
+
+Right now it's got a bunch of chatty debug code in it that I hope to upgrade to some kind of sensible logging framework soon, but hey, deal with it.
+
+## Secrets
+
+The SSID and password aren't stored in this repo. We are not animals.
+
+There is a file called `include/secrets.h` which is listed in `.gitignore`. It
+should look like this (but with your actual SSID and password):
+
+```C
+#define WIFI_SSID "promisedlan"
+#define WIFI_PASSWORD "tellyourwifisaidhi"
+```
+
+The project won't build without it.
 
 ## Required Tooling
 
-I've only run this on MacOS, and if I recall correctly, you'll need these tools installed for a good command-line experience:
+I've only run this on MacOS, and if I recall correctly, you'll need these tools
+installed for a good command-line experience:
 
 * `brew install picotool`
 * `brew install cmake`
 * `brew install ninja`
 * `brew install minicom` (optional)
 
-Raspberry Pi also provides a nice VSCode extension that provides support for building and loading code and monitoring serial port output. It looks like this, but I won't document it in any more detail in this README:
-
-<img alt="The official Raspberry Pi Pico VSCode Plugin" width="486" alt="image" src="https://github.com/user-attachments/assets/5e1d32d6-6783-4f9c-b365-b10e69216636" />
 
 ## Supported Platforms
 
 * Pico W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf))
-* Pico 2 ([datasheet](https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf))
 
-The build is configurable via the `PICO_BOARD` variable in the CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll see these lines:
+Yes, just that one. I've ordered some Pico 2W boards, but they don't seem to be
+shipping as of the date of this commit, and frankly I can't imagine bringing
+this build up on a new board, so awful was the process of getting it running on
+the Pico W.
+
+But the build is notionally configurable via the `PICO_BOARD` variable in the
+CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll
+see these lines:
 
 ```CMake
-#set(PICO_BOARD pico_w CACHE STRING "Board type")
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico_w CACHE STRING "Board type")
+# LMAO this doesn't exist yet
+# set(PICO_BOARD pico_2w CACHE STRING "Board type")
 ```
-
-Be sure to uncomment one and only one of those lines, depending on the kind of board you want to build for.
 
 ## Cloning
 
-This repo uses submodules for the [Pico SDK](https://github.com/raspberrypi/pico-sdk) and [FreeRTOS](https://github.com/FreeRTOS/FreeRTOS-Kernel). Don't blame me; this is really the best way to manage C-language dependencies. You want Maven Central? Go try all this in Kotlin.
+This repo uses submodules for the [Pico SDK](https://github.com/raspberrypi/pico-sdk) and
+[FreeRTOS](https://github.com/FreeRTOS/FreeRTOS-Kernel). Look, I'm sorry. It's C
+and C++ code. This is how we do it here.
 
-The submodules are set to use Pico SDK 2.1.0 and an unreleased version of FreeRTOS, which perfidy is necessary to support RP2350-based boards.
+The submodules are set to use my own fork of the Pico SDK with an unreleased bug
+fix in it, plus an unreleased version of FreeRTOS. Look...it's a cursed
+creation. Yet we soldier on.
 
-To clone the repo, bring this to the working directory you use for super meaningful projects like this:
+To clone the repo, get into your favorite working directory and type:
 
 `git clone --recurse-submodules https://github.com/tlberglund/pico-freertos-example.git`
 
-If it's too late and you already cloned the normal way and you're worrying what do to about the dang submodules, get into the clone directory and drop this:
+But we both know you already cloned without that submodule switch. So now get
+into the directory you cloned into and type:
 
 `git submodule update --init --recursive`
 
-Everything will be fine.
+Next time, read the README first.
 
 ## Building
 
-The build uses [CMake](https://cmake.org) and [Ninja](https://ninja-build.org/), which is standard for Pico C/C++ projects. If you've found this repo because you're looking to get started on the Pico, you might also be new to CMake, which is evidence of a longstanding pattern of positive life choices. To run the build, get into the clone directory and type these things:
+The build uses [CMake](https://cmake.org) and [Ninja](https://ninja-build.org/),
+which is standard for Pico C/C++ projects. If you've found this repo because
+you're looking to get started on the Pico, you might also be new to CMake, for
+which I affirm you. Of course, if you're jumping in to the Pico and CMake and
+hoping to build a project that uses an RTOS and TCP/IP all at the same time,
+that's probably a bit too ambitious, but I know you're not going to listen to
+me. So just get into the clone directory and type these things:
 
 1. `mkdir build`
 2. `CMake -G Ninja -S . -B build`
 3. `ninja -C build`
 
-CMake is actually a system for describing a build, which it typically generates as a makefile or a Ninja build file. Ninja is the tool that is actually invoking the compiler and linker. If you're iterating on an example and changing only your C or C++ code, you can just re-run the `ninja` command without regenerating the build with CMake. This actually is as fast as it claims to be, and isn't a terrible workflow once you get into it.
+Now, CMake "isn't a build system," but "is actually a system for describing a
+build," which the incredibly annoying kind of thing that the authors of build
+systems generally say. But its output really is a listing of commands for an
+Actual Build Tool called Ninja, which is what invokes the compiler and linker.
+If you're iterating on an example and changing only your C or C++ code, you can
+just re-run the `ninja` command without regenerating the build with CMake. This
+actually is as fast as it claims to be, and isn't a terrible workflow once you
+get into it.
 
-## That Debugging Life
+## Debugging
 
-1. Plug the Pico board into a USB port on your computer using a USB Mini cable you found in the box of cables that you keep around in case you need them. _See, there's a reason you have those!_
-2. Wait, make sure you held down the BOOTSEL button on the Pico before you plugged it in. You'll need to do this every time before you load code into it. I don't like it any more than you do, but the sense of vindication you had when you found that cable makes it all worth it.
-3. Run the build (see above).
-4. From the project directory, run: `picotool load -x build/freeRTOS_hello_world.uf2`
-5. Watch that light blink! This is exactly what it felt like for the first human who made a fire.
-6. The output of the `printf` function goes to a serial device you can monitor using `minicom`. On MacOS (and presumably Linux, but I haven't tried it), type `minicom -D /dev/tty.usb` and hit tab. If there's only one device with that name, that's your Pico's serial port. If there are multiple devices, well, you're writing firmware. Trial and error is your life now.
-
-Note that the USB serial device name will change randomly throughout your debug session, so don't expect the exact same command to work every time. You'll have to repeat the tab complete step occasionally. There's a one-second sleep on startup in the code to give you a tiny bit of time to do this after `picotool` finishes, so you can still see startup debug output. Feel free to increase the delay if it makes life easier.
+Remember up top when I told you to see my main [Pico/FreeRTOS example
+repo](https://github.com/tlberglund/pico-freertos-example) for more details
+about this project? Well, seriously, go do that. It's got some good stuff about
+debugging there.
