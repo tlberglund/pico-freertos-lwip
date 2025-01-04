@@ -3,6 +3,7 @@
 #include "secrets.h"
 #include "wifi.h"
 #include "network_time.h"
+#include "apa102.h"
 
 extern "C" {
     #include "pico_led.h"
@@ -28,6 +29,8 @@ extern "C" {
 WifiConnection& wifi = WifiConnection::getInstance();
 NetworkTime& network_time = NetworkTime::getInstance();
 
+APA102 led_strip(50);
+
 
 typedef struct {
     struct tcp_pcb *pcb;
@@ -38,36 +41,48 @@ typedef struct {
 static void tcp_server_close(tcp_server_t *state);
 
 
-static err_t tcp_server_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
+static err_t tcp_server_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *packet_buf, err_t err) {
     tcp_server_t *state = (tcp_server_t*)arg;
     
     printf("IN tcp_server_recv\n");
 
-    if(!p) {
-        // Remote host closed connection
+    if(!packet_buf) {
         tcp_server_close(state);
         return ERR_OK;
     }
     
-    if(p->tot_len > 0) {
-        printf("RX LEN=%d\n", p->tot_len);
+    if(packet_buf->tot_len > 0) {
+        printf("RX %4d BYTES\n", packet_buf->tot_len);
 
         // Copy the received data into our buffer
-        uint16_t copy_len = MIN(p->tot_len, BUFFER_SIZE - state->buffer_len);
-        pbuf_copy_partial(p, state->buffer + state->buffer_len, copy_len, 0);
+        uint16_t copy_len = MIN(packet_buf->tot_len, BUFFER_SIZE - state->buffer_len);
+        printf("COPYING %d BYTES\n", copy_len);
+        pbuf_copy_partial(packet_buf, state->buffer + state->buffer_len, copy_len, 0);
         state->buffer_len += copy_len;
-        
-        // Process the received data here
-        // For this example, we'll just echo it back
-        tcp_write(pcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
-        tcp_output(pcb);
-        
+        printf("BUFFER LEN %d BYTES\n", state->buffer_len);
+    }
+
+    // When we've received a full strip's worth of data (TCP may split this up over multiple transmissions)
+    if(state->buffer_len == led_strip.get_strip_len() * 4) {
+        printf("COMPLETE BUFFER; UPDATING STRIP\n");
+        for(int n = 0; n < led_strip.get_strip_len(); n++) {
+            uint8_t brightness, red, green, blue;
+            uint8_t *led_config;
+            led_config = &state->buffer[n * 4];
+            brightness = led_config[0];
+            red = led_config[1];
+            green = led_config[2];
+            blue = led_config[3];
+            led_strip.set_led(n, red, green, blue, brightness);
+        }
+        led_strip.update_strip();
+
         // Clear the buffer after processing
         state->buffer_len = 0;
     }
     
     // Free the received pbuf
-    pbuf_free(p);
+    pbuf_free(packet_buf);
 
     printf("DONE tcp_server_recv\n");
     
@@ -191,6 +206,7 @@ void led_task(void *pvParameters) {
         vTaskDelay(1000);
     }
 }
+
 
 
 void launch() {
