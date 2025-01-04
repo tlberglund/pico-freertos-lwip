@@ -26,9 +26,10 @@ set(CMAKE_BUILD_TYPE Debug)
 set(PROJECT_NAME strip_driver)
 set(OUTPUT_NAME strip_driver)
 
-# Choose the variety of Pico. Several parts of the build figure themselves out based on this setting.
+# Choose the variety of Pico. This is for future expansion; right now only Pico W is supported.
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-#set(PICO_BOARD pico2 CACHE STRING "Board type")
+# LMAO pico_2w doesn't exist yet
+# set(PICO_BOARD pico_2w CACHE STRING "Board type")
 
 # Point to the repo's submodules for the PicoSDK and FreeRTOS
 set(PICO_SDK_PATH "../pico-sdk/")
@@ -37,10 +38,8 @@ set(FREERTOS_KERNEL_PATH "FreeRTOS-Kernel")
 # Figure out board support pakcage based on PICO_BOARD
 if(${PICO_BOARD} STREQUAL "pico_w")
     set(FREERTOS_KERNEL_PORT_RELATIVE_PATH "portable/ThirdParty/GCC/RP2040")
-elseif(${PICO_BOARD} STREQUAL "pico2")
-    set(FREERTOS_KERNEL_PORT_RELATIVE_PATH "portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ")
 else()
-    message(WARNING "Unrecognized PICO_BOARD value: ${PICO_BOARD}")
+    message(WARNING "Unrecognized PICO_BOARD value: ${PICO_BOARD}. Only 'pico_w' is supported at present.")
 endif()
 
 set(FREERTOS_PORT_PATH ${FREERTOS_KERNEL_PATH}/${FREERTOS_KERNEL_PORT_RELATIVE_PATH})
@@ -64,12 +63,6 @@ add_executable(${OUTPUT_NAME}
     ${PICO_SDK_PATH}/lib/lwip/src/apps/sntp/sntp.c
 )
 
-pico_generate_pio_header(${OUTPUT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/apa102.pio)
-
-# target_sources(${OUTPUT_NAME} 
-#     PRIVATE
-# )
-
 target_include_directories(${OUTPUT_NAME} PUBLIC 
     ${FREERTOS_KERNEL_PATH}/include 
     include/ 
@@ -79,10 +72,6 @@ target_include_directories(${OUTPUT_NAME} PUBLIC
 pico_enable_stdio_usb(${OUTPUT_NAME} 1)
 
 if(${PICO_BOARD} STREQUAL "pico_w")
-    # target_sources(${OUTPUT_NAME} 
-    #     PRIVATE
-            
-    # )
     target_link_libraries(${OUTPUT_NAME} 
         pico_cyw43_arch_lwip_sys_freertos
         FreeRTOS-Kernel-Heap4)
@@ -95,8 +84,6 @@ endif()
 target_link_libraries(${OUTPUT_NAME}
     pico_stdlib
     pico_runtime
-    hardware_pio
-    hardware_dma
     hardware_rtc
     pico_stdio_usb)
 
