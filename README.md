@@ -24,7 +24,7 @@ There is a file called `include/secrets.h` which is listed in `.gitignore`. It s
 
 ```C
 #define WIFI_SSID "promisedlan"
-#define WIFI_PASSWORD "tellyourwifisaidhi"
+#define WIFI_PASSWORD "tellmywifiloveher"
 ```
 
 The project won't build without it.
