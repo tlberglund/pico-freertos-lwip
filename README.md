@@ -1,18 +1,18 @@
 # Raspberry Pi Pico FreeRTOS Lightweight IP Stack (LWIP) Example
 
-This is an example of how to use the [FreeRTOS](https://www.freertos.org/) LWIP (Lightweight IP) stack on the [Raspberry Pi PicoW](https://www.raspberrypi.com/products/raspberry-pi-pico/). Creating it was not a pleasant process. I hope using it is.
+This is an example of how to use the [FreeRTOS](https://www.freertos.org/) LWIP (Lightweight IP) stack on the [Raspberry Pi Pico W and Pico2 W](https://www.raspberrypi.com/products/raspberry-pi-pico/). Creating it was not a pleasant process. I hope using it is.
 
 At present there is a bug in the [Pico SDK 2.1.0](https://github.com/raspberrypi/pico-sdk) support for the Infineon CYW43439 device on the Pico W (the part that provides Wifi and Bluetooth support), so this repo uses a fork containing the fix, which I found documented in [issue 2101 in the Pico SDK repo](https://github.com/raspberrypi/pico-sdk/issues/2101). But we are getting ahead of ourselves.
 
 You should see my main [Pico/FreeRTOS example repo](https://github.com/tlberglund/pico-freertos-example) for more details about how to build this project.
 
-I owe a substantial debt to @jondurrant's [Pico W SNTP example](https://github.com/jondurrant/RPIPicoWSNTP), which didn't run for me, but formed the basis for this work.
+I owe a substantial debt to [@jondurrant](https://github.com/jondurrant)'s [Pico W SNTP example](https://github.com/jondurrant/RPIPicoWSNTP), which didn't run for me, but formed the basis of this work.
 
 ## What Does This Actually Do?
 
 This project joins a wifi network, uses DHCP to get an IP, and starts an SNTP (Simple Network Time Protocol) thread that fetches the time every hour. You might not need desperately need NTP in your life, but this is a springboard into anything you want to do with the TCP/IP stack. There are several other application-level protocols implemeted in the Pico SDK in the same directory the NTP code is located in (peruse `CMakeLists.txt` for this path), so you can go have some fun. By which I mean hours of frustration culmiating in a mildly satisfactory result.
 
-The poorly-documented `WifiConnection` class is derived from @jondurrant's helpful WifiHelper class. It's a singleton that provides basic services to initialize the CYW43 SoC and join the configured wireless network. It does the intializing and network-joining in a FreeRTOS thread that continually checks the network status and attempts to rejoin as needed. The `wait_for_wifi_init()` method allows other threads to block on the networking joining. There are probably bugs lurking in the un-joining and re-joining code, which is not super battle-hardened.
+The poorly-documented `WifiConnection` class is derived from [@jondurrant](https://github.com/jondurrant)'s helpful WifiHelper class. It's a singleton that provides basic services to initialize the CYW43 SoC and join the configured wireless network. It does the intializing and network-joining in a FreeRTOS thread that continually checks the network status and attempts to rejoin as needed. The `wait_for_wifi_init()` method allows other threads to block on the networking joining. There are probably bugs lurking in the un-joining and re-joining code, which is not super battle-hardened.
 
 Right now it's got a bunch of chatty debug code in it that I hope to upgrade to some kind of sensible logging framework soon, as if there's any such thing as a sensible logging framework. And when it's finished booting up and joining the network, it won't emit any further debug—it'll just sit there, updating the time once an hour, not saying anything—a substantially blank canvas ready to receive your contributions, like the pretentious, entitled, angst-ridden LiveJournal page you never had, except it's an embedded system.
 
@@ -42,16 +42,16 @@ I've only run this on MacOS, and if I recall correctly, you'll need these tools 
 ## Supported Platforms
 
 * Pico W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf))
+* Pico 2W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf))
 
-Yes, just that one. I've ordered some Pico 2W boards, but they don't seem to be shipping as of the date of this commit, and frankly I can't imagine bringing this build up on a new board, so awful was the process of getting it running on the Pico W. Maybe I'll get lucky and the bugs will be the same.
-
-Still, the build is notionally configurable via the `PICO_BOARD` variable in the CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll see these lines:
+The Pico 2W is a new device as of this writing, and getting this build running on it was virtually zero hastle compared to the process on the Pico W. The build is configurable via the `PICO_BOARD` variable in the CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll see these lines:
 
 ```CMake
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-# LMAO this doesn't exist yet
-# set(PICO_BOARD pico_2w CACHE STRING "Board type")
+# set(PICO_BOARD pico2_w CACHE STRING "Board type")
 ```
+
+Uncomment just one of them, and you're off and running.
 
 ## Cloning
 

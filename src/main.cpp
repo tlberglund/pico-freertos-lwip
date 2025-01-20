@@ -11,7 +11,6 @@ extern "C" {
     #include "task.h"
     #include "queue.h"
     #include "timers.h"
-    #include "hardware/rtc.h"
     #include "lwip/tcp.h"
     #include "lwip/err.h"
     #include "lwip/pbuf.h"

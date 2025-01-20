@@ -20,16 +20,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(PICO_TOOLCHAIN_PATH "${USERHOME}/.pico-sdk/toolchain/${toolchainVersion}")
 
-
+# Set to Debug or Release
 set(CMAKE_BUILD_TYPE Debug)
 
-set(PROJECT_NAME strip_driver)
-set(OUTPUT_NAME strip_driver)
+set(PROJECT_NAME pico_lwip_example)
+set(OUTPUT_NAME pico_lwip_example)
 
 # Choose the variety of Pico. This is for future expansion; right now only Pico W is supported.
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-# LMAO pico_2w doesn't exist yet
-# set(PICO_BOARD pico_2w CACHE STRING "Board type")
+# set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
 # Point to the repo's submodules for the PicoSDK and FreeRTOS
 set(PICO_SDK_PATH "../pico-sdk/")
@@ -38,8 +37,10 @@ set(FREERTOS_KERNEL_PATH "FreeRTOS-Kernel")
 # Figure out board support pakcage based on PICO_BOARD
 if(${PICO_BOARD} STREQUAL "pico_w")
     set(FREERTOS_KERNEL_PORT_RELATIVE_PATH "portable/ThirdParty/GCC/RP2040")
+elseif(${PICO_BOARD} STREQUAL "pico2" OR ${PICO_BOARD} STREQUAL "pico2_w")
+    set(FREERTOS_KERNEL_PORT_RELATIVE_PATH "portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ")
 else()
-    message(WARNING "Unrecognized PICO_BOARD value: ${PICO_BOARD}. Only 'pico_w' is supported at present.")
+    message(WARNING "Unrecognized PICO_BOARD value: ${PICO_BOARD}")
 endif()
 
 set(FREERTOS_PORT_PATH ${FREERTOS_KERNEL_PATH}/${FREERTOS_KERNEL_PORT_RELATIVE_PATH})
@@ -74,8 +75,14 @@ pico_enable_stdio_usb(${OUTPUT_NAME} 1)
 if(${PICO_BOARD} STREQUAL "pico_w")
     target_link_libraries(${OUTPUT_NAME} 
         pico_cyw43_arch_lwip_sys_freertos
+        hardware_rtc
         FreeRTOS-Kernel-Heap4)
     target_compile_definitions(FreeRTOS-Kernel INTERFACE PICO_RP2040=1)
+elseif(${PICO_BOARD} STREQUAL "pico2_w")
+    target_link_libraries(${OUTPUT_NAME} 
+        pico_cyw43_arch_lwip_sys_freertos
+        FreeRTOS-Kernel-Heap4)
+    target_compile_definitions(FreeRTOS-Kernel INTERFACE PICO_RP2350=1)
 else()
     target_link_libraries(${OUTPUT_NAME} 
         FreeRTOS-Kernel-Heap4)
@@ -84,7 +91,7 @@ endif()
 target_link_libraries(${OUTPUT_NAME}
     pico_stdlib
     pico_runtime
-    hardware_rtc
+    pico_aon_timer
     pico_stdio_usb)
 
 add_compile_options(-save-temps=obj -fverbose-asm)
